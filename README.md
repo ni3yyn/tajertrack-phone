@@ -77,6 +77,15 @@ A preview APK can target a Vercel preview deployment without changing the produc
 gradle :app:assembleDebug -PtajertrackBaseUrl="https://your-preview-deployment.vercel.app"
 ```
 
+For public merchant downloads, create one stable Android release keystore locally (keep a secure offline backup; never commit it):
+
+```bash
+keytool -genkeypair -v -keystore tajertrack-phone-release.jks -alias tajertrack-phone -keyalg RSA -keysize 2048 -validity 10000
+base64 -w 0 tajertrack-phone-release.jks
+```
+
+Copy the base64 output into the first GitHub Actions secret below, and use the alias/passwords you chose for the remaining secrets. The repository ignores `.jks` and `.keystore` files.
+
 For public merchant downloads, create one stable Android release keystore and add these GitHub Actions repository secrets:
 
 - `ANDROID_KEYSTORE_BASE64`: base64-encoded contents of the release `.jks` file
