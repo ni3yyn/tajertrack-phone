@@ -61,7 +61,8 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          gradle :app:assembleRelease --stacktrace -PreleaseKeystorePath="$RUNNER_TEMP/tajertrack-phone-release.jks" -PreleaseStorePassword="$ANDROID_KEYSTORE_PASSWORD" -PreleaseKeyAlias="$ANDROID_KEY_ALIAS" -PreleaseKeyPassword="$ANDROID_KEY_PASSWORD" -PtajertrackBaseUrl="https://tajertrack.vercel.app"
+          APP_VERSION="${GITHUB_REF_NAME#v}"
+          gradle :app:assembleRelease --stacktrace -PappVersionCode="$GITHUB_RUN_NUMBER" -PappVersionName="$APP_VERSION" -PreleaseKeystorePath="$RUNNER_TEMP/tajertrack-phone-release.jks" -PreleaseStorePassword="$ANDROID_KEYSTORE_PASSWORD" -PreleaseKeyAlias="$ANDROID_KEY_ALIAS" -PreleaseKeyPassword="$ANDROID_KEY_PASSWORD" -PtajertrackBaseUrl="https://tajertrack.vercel.app"
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk dist/tajertrack-phone.apk
 
