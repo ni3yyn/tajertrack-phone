@@ -23,12 +23,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle 8.13
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: '8.13'
-          cache-provider: basic
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
@@ -50,6 +44,12 @@ jobs:
           git add -A
           git commit -m "Add native TajerTrack Phone Android source"
           git push origin "${GITHUB_REF_NAME}"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.13'
+          cache-provider: basic
 
       - name: Assemble debug APK and run lint
         run: gradle :app:assembleDebug :app:lintDebug --stacktrace
