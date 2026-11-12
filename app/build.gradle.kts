@@ -4,6 +4,17 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val releaseKeystorePath = providers.gradleProperty("releaseKeystorePath").orNull
+val releaseStorePassword = providers.gradleProperty("releaseStorePassword").orNull
+val releaseKeyAlias = providers.gradleProperty("releaseKeyAlias").orNull
+val releaseKeyPassword = providers.gradleProperty("releaseKeyPassword").orNull
+val hasReleaseSigning = listOf(
+    releaseKeystorePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.tajertrack.phone"
     compileSdk = 36
@@ -15,7 +26,32 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        buildConfigField("String", "TAJERTRACK_BASE_URL", "\"https://tajertrack.vercel.app\"")
+        val configuredBaseUrl = providers.gradleProperty("tajertrackBaseUrl")
+            .orElse(providers.environmentVariable("TAJERTRACK_BASE_URL"))
+            .orElse("https://tajertrack.vercel.app")
+            .get()
+        val escapedBaseUrl = configuredBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")
+        buildConfigField("String", "TAJERTRACK_BASE_URL", "\"$escapedBaseUrl\"")
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(requireNotNull(releaseKeystorePath))
+                storePassword = requireNotNull(releaseStorePassword)
+                keyAlias = requireNotNull(releaseKeyAlias)
+                keyPassword = requireNotNull(releaseKeyPassword)
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     buildFeatures {
