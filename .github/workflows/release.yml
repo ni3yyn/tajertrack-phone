@@ -1,0 +1,73 @@
+name: Signed Android release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish signed APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.13"
+          cache-provider: basic
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android SDK 36
+        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Validate release signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing GitHub Actions secret: $name"
+              exit 1
+            fi
+          done
+          printf "%s" "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/tajertrack-phone-release.jks"
+          test -s "$RUNNER_TEMP/tajertrack-phone-release.jks"
+
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          gradle :app:assembleRelease --stacktrace -PreleaseKeystorePath="$RUNNER_TEMP/tajertrack-phone-release.jks" -PreleaseStorePassword="$ANDROID_KEYSTORE_PASSWORD" -PreleaseKeyAlias="$ANDROID_KEY_ALIAS" -PreleaseKeyPassword="$ANDROID_KEY_PASSWORD" -PtajertrackBaseUrl="https://tajertrack.vercel.app"
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/tajertrack-phone.apk
+
+      - name: Publish APK release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: TajerTrack Phone ${{ github.ref_name }}
+          generate_release_notes: true
+          files: dist/tajertrack-phone.apk
