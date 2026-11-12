@@ -4,6 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val appVersionCode = providers.gradleProperty("appVersionCode").map(String::toInt).orElse(1)
+val appVersionName = providers.gradleProperty("appVersionName").orElse("0.1.0")
 val releaseKeystorePath = providers.gradleProperty("releaseKeystorePath").orNull
 val releaseStorePassword = providers.gradleProperty("releaseStorePassword").orNull
 val releaseKeyAlias = providers.gradleProperty("releaseKeyAlias").orNull
@@ -23,8 +25,8 @@ android {
         applicationId = "com.tajertrack.phone"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode.get()
+        versionName = appVersionName.get()
 
         val configuredBaseUrl = providers.gradleProperty("tajertrackBaseUrl")
             .orElse(providers.environmentVariable("TAJERTRACK_BASE_URL"))
