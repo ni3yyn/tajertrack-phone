@@ -1,1 +1,0 @@
-This temporary bootstrap marker is removed after the native Android source has been restored.
