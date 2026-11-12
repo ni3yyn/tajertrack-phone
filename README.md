@@ -69,15 +69,19 @@ app/                 Native Android app
  docs/                Backend API contract and merchant flow
 ```
 
-## Publish as a new GitHub repository
+## Preview builds and signed releases
 
-After extracting the project folder, authenticate the GitHub CLI once (`gh auth login`) and run this inside the folder:
+A preview APK can target a Vercel preview deployment without changing the production default:
 
 ```bash
-git init -b main
-git add .
-git commit -m "Initial TajerTrack Phone Android app"
-gh repo create ni3yyn/tajertrack-phone --public --source=. --remote=origin --push
+gradle :app:assembleDebug -PtajertrackBaseUrl="https://your-preview-deployment.vercel.app"
 ```
 
-Use `--private` instead of `--public` to keep the source private.
+For public merchant downloads, create one stable Android release keystore and add these GitHub Actions repository secrets:
+
+- `ANDROID_KEYSTORE_BASE64`: base64-encoded contents of the release `.jks` file
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+Never commit the keystore or passwords. After configuring the secrets, push a version tag such as `v1.0.0`. The signed APK is published as `tajertrack-phone.apk` on the GitHub Release. Keep the same keystore for every future app update so Android can install updates over the existing app.
