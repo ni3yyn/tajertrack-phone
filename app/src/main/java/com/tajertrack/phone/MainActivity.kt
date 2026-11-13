@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Bundle
 import android.telephony.SmsManager
 import android.telephony.SubscriptionManager
-import android.telephony.TelephonyManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -47,7 +46,6 @@ class MainActivity : ComponentActivity() {
     private var simSetupUnlocked by mutableStateOf(false)
     private var isSendingTestSms by mutableStateOf(false)
     private var pendingStartAfterPermissions = false
-    private var pendingTestSmsAfterPhoneNumberPermission = false
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,18 +63,6 @@ class MainActivity : ComponentActivity() {
 
         permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
             refreshSimChoices()
-            if (pendingTestSmsAfterPhoneNumberPermission) {
-                pendingTestSmsAfterPhoneNumberPermission = false
-                if (ContextCompat.checkSelfPermission(
-                        this,
-                        Manifest.permission.READ_PHONE_NUMBERS
-                    ) == PackageManager.PERMISSION_GRANTED
-                ) {
-                    sendTestSms()
-                } else {
-                    statusMessage = "لم تمنح إذن قراءة رقم الشريحة. لم تُرسل رسالة الاختبار."
-                }
-            }
             if (pendingStartAfterPermissions) {
                 pendingStartAfterPermissions = false
                 if (requiredPermissionsGranted()) {
@@ -297,24 +283,13 @@ class MainActivity : ComponentActivity() {
             statusMessage = "إذن إرسال الرسائل غير متاح. فعّله من إعدادات Android ثم أعد المحاولة."
             return
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED) {
-            pendingTestSmsAfterPhoneNumberPermission = true
-            statusMessage = "اسمح للتطبيق بقراءة رقم الشريحة لإرسال رسالة الاختبار إلى الرقم نفسه."
-            permissionLauncher.launch(arrayOf(Manifest.permission.READ_PHONE_NUMBERS))
-            return
-        }
-
-        val testPhoneNumber = readSelectedSimPhoneNumber(selectedSimId)
-        if (testPhoneNumber.isNullOrBlank()) {
-            statusMessage = "لم توفر شركة الاتصالات رقم الشريحة المحددة لـ Android. لا يمكن إرسال الاختبار تلقائياً؛ جرّب التحقق من الرقم لدى مشغّل الشبكة."
-            return
-        }
 
         isSendingTestSms = true
-        statusMessage = "جارٍ إرسال رسالة الاختبار إلى رقم الشريحة المحددة..."
+        statusMessage = "جارٍ تجهيز رسالة الاختبار إلى رقم الهاتف المسجل في حسابك..."
         lifecycleScope.launch {
             var testRequestId: String? = null
             try {
+                val target = ApiClient().testSmsTarget(token)
                 val requestId = UUID.randomUUID().toString()
                 testRequestId = requestId
                 val result = SmsResultBus.register(requestId)
@@ -337,56 +312,27 @@ class MainActivity : ComponentActivity() {
                     SmsManager.getSmsManagerForSubscriptionId(selectedSimId)
                 }
 
-                manager.sendTextMessage(testPhoneNumber, null, TEST_SMS_MESSAGE, pendingIntent, null)
+                manager.sendTextMessage(target.phone, null, target.message, pendingIntent, null)
                 val outcome = withTimeoutOrNull(TEST_SMS_RESULT_TIMEOUT_MS) { result.await() }
 
                 statusMessage = when {
                     outcome == null ->
-                        "لم يؤكد Android نتيجة رسالة الاختبار إلى $testPhoneNumber. لا تضغط إرسال مجدداً قبل التحقق من وصولها."
+                        "لم يؤكد Android نتيجة رسالة الاختبار إلى ${target.phone}. لا تضغط إرسال مجدداً قبل التحقق من وصولها."
                     outcome.status == "submitted" ->
-                        "أرسل Android رسالة الاختبار إلى $testPhoneNumber. تحقق من وصولها؛ تأكيد Android يعني قبولها للإرسال عبر الشبكة ولا يضمن التسليم."
+                        "أرسل Android رسالة الاختبار إلى ${target.phone}. تحقق من وصولها؛ تأكيد Android يعني قبولها للإرسال عبر الشبكة ولا يضمن التسليم."
                     else ->
-                        "تعذر إرسال رسالة الاختبار إلى $testPhoneNumber. ${outcome.error.orEmpty()}"
+                        "تعذر إرسال رسالة الاختبار إلى ${target.phone}. ${outcome.error.orEmpty()}"
                 }
             } catch (error: SecurityException) {
-                statusMessage = "لا يملك التطبيق إذن قراءة رقم الشريحة أو إرسال SMS حالياً. راجع أذونات التطبيق في Android."
+                statusMessage = "لا يملك التطبيق إذن إرسال SMS حالياً. راجع أذونات التطبيق في Android."
             } catch (error: Exception) {
                 statusMessage = error.message?.takeIf { it.isNotBlank() }
-                    ?: "تعذر إرسال رسالة الاختبار. تحقق من اتصال الشبكة والشريحة ثم حاول لاحقاً."
+                    ?: "تعذر إرسال رسالة الاختبار. تحقق من اتصال الإنترنت والشريحة ثم حاول لاحقاً."
             } finally {
                 testRequestId?.let { SmsResultBus.remove(it) }
                 isSendingTestSms = false
             }
         }
-    }
-
-    @Suppress("DEPRECATION")
-    private fun readSelectedSimPhoneNumber(subscriptionId: Int): String? {
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.READ_PHONE_NUMBERS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return null
-        }
-
-        val rawNumber = runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                getSystemService(SubscriptionManager::class.java).getPhoneNumber(subscriptionId)
-            } else {
-                getSystemService(TelephonyManager::class.java)
-                    .createForSubscriptionId(subscriptionId)
-                    .line1Number
-            }
-        }.getOrNull() ?: return null
-
-        val compactNumber = rawNumber.trim().filter { it.isDigit() || it == '+' }
-        val normalizedNumber = if (compactNumber.startsWith("00")) {
-            "+${compactNumber.drop(2)}"
-        } else {
-            compactNumber
-        }
-        return normalizedNumber.takeIf { number -> number.any { it.isDigit() } }
     }
 
     private fun stopRelay() {
