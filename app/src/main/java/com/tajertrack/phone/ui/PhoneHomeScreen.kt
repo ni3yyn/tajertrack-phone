@@ -691,8 +691,6 @@ private fun ConnectionPage(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RectangleShape,
                 border = BorderStroke(1.dp, TajerBorder),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
-            ,
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = TajerForest,
                     disabledContentColor = TajerForest
