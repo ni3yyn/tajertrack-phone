@@ -98,11 +98,13 @@ fun PhoneHomeScreen(
     statusMessage: String,
     pairing: Boolean,
     simSetupUnlocked: Boolean,
+    testSmsSending: Boolean,
     simChoices: List<SimChoice>,
     selectedSimId: Int,
     onConnect: () -> Unit,
     onStartRelay: () -> Unit,
     onStopRelay: () -> Unit,
+    onSendTestSms: () -> Unit,
     onSelectSim: (Int) -> Unit,
     onReconnect: () -> Unit,
     onExitApp: () -> Unit
@@ -228,11 +230,13 @@ fun PhoneHomeScreen(
                                     storeName = storeName,
                                     statusMessage = statusMessage,
                                     simSetupUnlocked = simSetupUnlocked,
+                                    testSmsSending = testSmsSending,
                                     simChoices = simChoices,
                                     selectedSimId = selectedSimId,
                                     onSelectSim = onSelectSim,
                                     onStartRelay = onStartRelay,
                                     onStopRelay = onStopRelay,
+                                    onSendTestSms = onSendTestSms,
                                     onReconnect = {
                                         destination = PhoneDestination.Connection
                                         onReconnect()
@@ -774,11 +778,13 @@ private fun SendingPage(
     storeName: String,
     statusMessage: String,
     simSetupUnlocked: Boolean,
+    testSmsSending: Boolean,
     simChoices: List<SimChoice>,
     selectedSimId: Int,
     onSelectSim: (Int) -> Unit,
     onStartRelay: () -> Unit,
     onStopRelay: () -> Unit,
+    onSendTestSms: () -> Unit,
     onReconnect: () -> Unit
 ) {
     Column(
@@ -958,6 +964,59 @@ private fun SendingPage(
                     )
                 }
             }
+
+            AnimatedVisibility(
+                visible = simSetupUnlocked && simChoices.isNotEmpty() && selectedSimId >= 0,
+                enter = fadeIn(tween(180)) + androidx.compose.animation.expandVertically(tween(240)),
+                exit = fadeOut(tween(120)) + androidx.compose.animation.shrinkVertically(tween(180))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(
+                            animationSpec = spring(dampingRatio = 0.88f, stiffness = 340f)
+                        )
+                ) {
+                    Spacer(Modifier.height(11.dp))
+                    OutlinedButton(
+                        onClick = onSendTestSms,
+                        enabled = !testSmsSending,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RectangleShape,
+                        border = BorderStroke(1.dp, TajerForest),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = TajerForest,
+                            disabledContentColor = TajerForest
+                        )
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (testSmsSending) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(17.dp),
+                                    color = TajerForest,
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                            Text(
+                                if (testSmsSending) "جارٍ إرسال الرسالة التجريبية..." else "إرسال رسالة SMS تجريبية",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "يرسل رسالة واحدة إلى رقم خدمة العملاء المحفوظ في إعدادات العلامة التجارية. قد تُحتسب رسوم SMS العادية.",
+                        fontSize = 10.sp,
+                        lineHeight = 18.sp,
+                        color = TajerMuted
+                    )
+                }
+            }
+
             Spacer(Modifier.height(12.dp))
             Text(
                 "يتطلب التشغيل اتصالاً بالإنترنت وأذونات إرسال الرسائل والوصول إلى شرائح الاتصال والإشعارات.",
