@@ -1,5 +1,12 @@
 <resources>
     <style name="Theme.TajerTrackPhone" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">@font/readex_pro</item>
+        <item name="android:colorAccent">#294B37</item>
+        <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:statusBarColor">#F4F3ED</item>
+        <item name="android:navigationBarColor">#F4F3ED</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#F4F3ED</item>
     </style>
 </resources>
