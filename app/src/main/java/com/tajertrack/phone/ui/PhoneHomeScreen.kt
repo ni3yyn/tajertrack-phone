@@ -2,6 +2,7 @@ package com.tajertrack.phone.ui
 
 import androidx.compose.ui.graphics.RectangleShape
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -58,6 +59,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -100,7 +102,8 @@ fun PhoneHomeScreen(
     onStartRelay: () -> Unit,
     onStopRelay: () -> Unit,
     onSelectSim: (Int) -> Unit,
-    onReconnect: () -> Unit
+    onReconnect: () -> Unit,
+    onExitApp: () -> Unit
 ) {
     CompositionDirectionRtl {
         val drawerState = androidx.compose.material3.rememberDrawerState(
@@ -108,6 +111,7 @@ fun PhoneHomeScreen(
         )
         val scope = rememberCoroutineScope()
         var destination by remember { mutableStateOf(PhoneDestination.Home) }
+        var showExitConfirmation by remember { mutableStateOf(false) }
         val pageTitle = when (destination) {
             PhoneDestination.Home -> "الرئيسية"
             PhoneDestination.Connection -> "ربط المتجر"
@@ -213,7 +217,8 @@ fun PhoneHomeScreen(
                                     storeName = storeName,
                                     pairing = pairing,
                                     statusMessage = statusMessage,
-                                    onConnect = onConnect
+                                    onConnect = onConnect,
+                                    onContinue = { destination = PhoneDestination.Sending }
                                 )
                                 PhoneDestination.Sending -> SendingPage(
                                     connected = connected,
@@ -237,6 +242,19 @@ fun PhoneHomeScreen(
             }
 
             var splashVisible by remember { mutableStateOf(true) }
+            BackHandler(enabled = !splashVisible) {
+                when {
+                    drawerState.isOpen -> scope.launch { drawerState.close() }
+                    destination != PhoneDestination.Home -> destination = PhoneDestination.Home
+                    else -> showExitConfirmation = true
+                }
+            }
+            if (showExitConfirmation) {
+                ExitConfirmationDialog(
+                    onDismiss = { showExitConfirmation = false },
+                    onConfirm = onExitApp
+                )
+            }
             LaunchedEffect(Unit) {
                 delay(1050)
                 splashVisible = false
@@ -503,19 +521,41 @@ private fun HomePage(
         Spacer(Modifier.height(27.dp))
         SectionHeading("وصول سريع", "إدارة الربط والإرسال من داخل التطبيق")
         Spacer(Modifier.height(12.dp))
-        NativeActionRow(
-            icon = Icons.Outlined.Link,
-            title = if (connected) "إعادة ربط المتجر" else "ربط المتجر",
-            detail = if (connected) "الحساب المرتبط: ${storeName.ifBlank { "متجرك" }}" else "افتح صفحة تاجر تراك لإتمام الربط",
-            onClick = onOpenConnection
-        )
-        Spacer(Modifier.height(10.dp))
-        NativeActionRow(
-            icon = Icons.Outlined.CellTower,
-            title = "إعداد إرسال الرسائل",
-            detail = if (relayRunning) "الخدمة تعمل على هذا الهاتف" else "اختر الشريحة وفعّل الإرسال",
-            onClick = onOpenSending
-        )
+        if (connected) {
+            Button(
+                onClick = onOpenSending,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RectangleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = TajerForest)
+            ) {
+                Text(
+                    if (relayRunning) "إدارة إرسال الرسائل" else "الخطوة التالية: إعداد إرسال الرسائل",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            NativeActionRow(
+                icon = Icons.Outlined.Link,
+                title = "إدارة ربط المتجر",
+                detail = "الحساب المرتبط: ${storeName.ifBlank { "متجرك" }}",
+                onClick = onOpenConnection
+            )
+        } else {
+            NativeActionRow(
+                icon = Icons.Outlined.Link,
+                title = "ربط المتجر",
+                detail = "افتح صفحة تاجر تراك لإتمام الربط",
+                onClick = onOpenConnection
+            )
+            Spacer(Modifier.height(10.dp))
+            NativeActionRow(
+                icon = Icons.Outlined.CellTower,
+                title = "إعداد إرسال الرسائل",
+                detail = "اختر الشريحة وفعّل الإرسال بعد ربط المتجر",
+                onClick = onOpenSending
+            )
+        }
 
         Spacer(Modifier.height(28.dp))
         SectionHeading("كيف يعمل التطبيق", "إرسال بسيط دون رسائل متكررة")
@@ -577,7 +617,8 @@ private fun ConnectionPage(
     storeName: String,
     pairing: Boolean,
     statusMessage: String,
-    onConnect: () -> Unit
+    onConnect: () -> Unit,
+    onContinue: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -626,27 +667,54 @@ private fun ConnectionPage(
             }
         }
         Spacer(Modifier.height(17.dp))
-        Button(
-            onClick = onConnect,
-            enabled = !pairing,
-            modifier = Modifier.fillMaxWidth().height(54.dp),
-            shape = RectangleShape,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = TajerForest,
-                contentColor = Color.White,
-                disabledContainerColor = TajerForest.copy(alpha = 0.55f)
-            ),
-            contentPadding = PaddingValues(horizontal = 18.dp)
-        ) {
-            Text(
-                when {
-                    pairing -> "جارٍ إكمال الربط..."
-                    connected -> "إعادة ربط الحساب"
-                    else -> "ربط المتجر"
-                },
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+        if (connected) {
+            Button(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RectangleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = TajerForest),
+                contentPadding = PaddingValues(horizontal = 18.dp)
+            ) {
+                Text(
+                    "الخطوة التالية: إعداد إرسال الرسائل",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(Modifier.height(9.dp))
+            OutlinedButton(
+                onClick = onConnect,
+                enabled = !pairing,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RectangleShape,
+                border = BorderStroke(1.dp, TajerBorder),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
+            ) {
+                Text(
+                    if (pairing) "جارٍ إكمال الربط..." else "إعادة ربط الحساب",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        } else {
+            Button(
+                onClick = onConnect,
+                enabled = !pairing,
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                shape = RectangleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = TajerForest,
+                    contentColor = Color.White,
+                    disabledContainerColor = TajerForest.copy(alpha = 0.55f)
+                ),
+                contentPadding = PaddingValues(horizontal = 18.dp)
+            ) {
+                Text(
+                    if (pairing) "جارٍ إكمال الربط..." else "ربط المتجر",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
         Spacer(Modifier.height(12.dp))
         Text(
@@ -1021,6 +1089,69 @@ private fun BrandMark(modifier: Modifier = Modifier) {
                     .size(4.dp)
                     .background(TajerClay)
             )
+        }
+    }
+}
+
+@Composable
+private fun ExitConfirmationDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = TajerSurface,
+            shape = RectangleShape,
+            border = BorderStroke(1.dp, TajerBorder)
+        ) {
+            Column(Modifier.padding(22.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BrandMark(modifier = Modifier.size(42.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("تاجر تراك فون", color = TajerInk, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("تأكيد الخروج", color = TajerMuted, fontSize = 10.sp)
+                    }
+                }
+                Spacer(Modifier.height(22.dp))
+                Text(
+                    "هل تريد الخروج من التطبيق؟",
+                    color = TajerInk,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    "سيبقى ربط متجرك وإعدادات الهاتف محفوظة، ويمكنك العودة في أي وقت.",
+                    color = TajerMuted,
+                    fontSize = 11.sp,
+                    lineHeight = 19.sp
+                )
+                Spacer(Modifier.height(22.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RectangleShape,
+                        border = BorderStroke(1.dp, TajerBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
+                    ) {
+                        Text("البقاء", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RectangleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = TajerForest)
+                    ) {
+                        Text("خروج", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
         }
     }
 }
