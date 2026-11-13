@@ -43,6 +43,7 @@ import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -96,6 +97,7 @@ fun PhoneHomeScreen(
     storeName: String,
     statusMessage: String,
     pairing: Boolean,
+    simSetupUnlocked: Boolean,
     simChoices: List<SimChoice>,
     selectedSimId: Int,
     onConnect: () -> Unit,
@@ -225,6 +227,7 @@ fun PhoneHomeScreen(
                                     relayRunning = relayRunning,
                                     storeName = storeName,
                                     statusMessage = statusMessage,
+                                    simSetupUnlocked = simSetupUnlocked,
                                     simChoices = simChoices,
                                     selectedSimId = selectedSimId,
                                     onSelectSim = onSelectSim,
@@ -689,12 +692,29 @@ private fun ConnectionPage(
                 shape = RectangleShape,
                 border = BorderStroke(1.dp, TajerBorder),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
-            ) {
-                Text(
-                    if (pairing) "جارٍ إكمال الربط..." else "إعادة ربط الحساب",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
+            ,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = TajerForest,
+                    disabledContentColor = TajerForest
                 )
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (pairing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(17.dp),
+                            color = TajerForest,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    Text(
+                        if (pairing) "جارٍ إكمال الربط..." else "إعادة ربط الحساب",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         } else {
             Button(
@@ -705,15 +725,28 @@ private fun ConnectionPage(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = TajerForest,
                     contentColor = Color.White,
-                    disabledContainerColor = TajerForest.copy(alpha = 0.55f)
+                    disabledContainerColor = TajerForest,
+                    disabledContentColor = Color.White
                 ),
                 contentPadding = PaddingValues(horizontal = 18.dp)
             ) {
-                Text(
-                    if (pairing) "جارٍ إكمال الربط..." else "ربط المتجر",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (pairing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    Text(
+                        if (pairing) "جارٍ إكمال الربط..." else "ربط المتجر",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -742,6 +775,7 @@ private fun SendingPage(
     relayRunning: Boolean,
     storeName: String,
     statusMessage: String,
+    simSetupUnlocked: Boolean,
     simChoices: List<SimChoice>,
     selectedSimId: Int,
     onSelectSim: (Int) -> Unit,
@@ -785,7 +819,13 @@ private fun SendingPage(
                 border = BorderStroke(1.dp, TajerBorder),
                 shape = RectangleShape
             ) {
-                Column(Modifier.padding(18.dp)) {
+                Column(
+                    Modifier
+                        .animateContentSize(
+                            animationSpec = spring(dampingRatio = 0.86f, stiffness = 320f)
+                        )
+                        .padding(18.dp)
+                ) {
                     Text("المتجر المرتبط", fontSize = 10.sp, color = TajerMuted)
                     Spacer(Modifier.height(5.dp))
                     Text(
@@ -797,16 +837,47 @@ private fun SendingPage(
                     Spacer(Modifier.height(19.dp))
                     HorizontalDivider(color = TajerBorder)
                     Spacer(Modifier.height(17.dp))
-                    Text("شريحة الإرسال", fontSize = 14.sp, color = TajerInk, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (simSetupUnlocked) "شريحة الإرسال" else "تفعيل إعداد الإرسال",
+                        fontSize = 14.sp,
+                        color = TajerInk,
+                        fontWeight = FontWeight.SemiBold
+                    )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "سيتم إرسال الرسائل من رقم الشريحة المختارة في هذا الهاتف. سيطلب Android الأذونات اللازمة عند التفعيل.",
+                        if (simSetupUnlocked) {
+                            "اختر الشريحة التي سيستخدمها الهاتف لإرسال روابط التتبع."
+                        } else {
+                            "اضغط على زر التفعيل أولاً واسمح بالأذونات المطلوبة. ستظهر شرائح الاتصال بعد الموافقة."
+                        },
                         color = TajerMuted,
                         fontSize = 11.sp,
                         lineHeight = 20.sp
                     )
-                    Spacer(Modifier.height(13.dp))
-                    SimPicker(simChoices, selectedSimId, onSelectSim)
+                    AnimatedVisibility(
+                        visible = simSetupUnlocked,
+                        enter = fadeIn(tween(220)) + androidx.compose.animation.expandVertically(tween(280)),
+                        exit = fadeOut(tween(140)) + androidx.compose.animation.shrinkVertically(tween(220))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateContentSize(
+                                    animationSpec = spring(dampingRatio = 0.86f, stiffness = 320f)
+                                )
+                        ) {
+                            Spacer(Modifier.height(14.dp))
+                            if (simChoices.isNotEmpty()) {
+                                SimPicker(simChoices, selectedSimId, onSelectSim)
+                            } else {
+                                NoticePanel(
+                                    title = "لا توجد شريحة متاحة",
+                                    detail = "أدخل شريحة اتصال فعّالة وتأكد من أن الهاتف يدعم إرسال الرسائل النصية.",
+                                    tone = NoticeTone.Warning
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -863,11 +934,26 @@ private fun SendingPage(
             } else {
                 Button(
                     onClick = onStartRelay,
+                    enabled = !simSetupUnlocked || (simChoices.isNotEmpty() && selectedSimId >= 0),
                     modifier = Modifier.fillMaxWidth().height(54.dp),
                     shape = RectangleShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = TajerForest)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TajerForest,
+                        contentColor = Color.White,
+                        disabledContainerColor = TajerForest.copy(alpha = 0.38f),
+                        disabledContentColor = TajerMuted
+                    )
                 ) {
-                    Text("تفعيل إرسال الرسائل", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        when {
+                            !simSetupUnlocked -> "تفعيل إعداد الإرسال"
+                            simChoices.isEmpty() -> "لا توجد شريحة متاحة"
+                            selectedSimId < 0 -> "اختر شريحة للمتابعة"
+                            else -> "بدء إرسال الرسائل"
+                        },
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
             Spacer(Modifier.height(12.dp))
