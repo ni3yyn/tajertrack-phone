@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -73,6 +75,28 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+}
+
+
+val readexFontBase64 = layout.projectDirectory.file("fonts/ReadexPro.ttf.base64")
+val generatedReadexResources = layout.buildDirectory.dir("generated/readex-font/res")
+
+val generateReadexFont by tasks.registering {
+    inputs.file(readexFontBase64)
+    outputs.dir(generatedReadexResources)
+
+    doLast {
+        val fontDirectory = generatedReadexResources.get().dir("font").asFile
+        fontDirectory.mkdirs()
+        val fontBytes = Base64.getMimeDecoder().decode(readexFontBase64.asFile.readText())
+        fontDirectory.resolve("readex_pro.ttf").writeBytes(fontBytes)
+    }
+}
+
+android.sourceSets.getByName("main").res.srcDir(generatedReadexResources)
+
+tasks.named("preBuild").configure {
+    dependsOn(generateReadexFont)
 }
 
 dependencies {
