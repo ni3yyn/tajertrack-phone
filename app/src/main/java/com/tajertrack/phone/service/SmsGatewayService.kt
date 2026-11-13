@@ -163,7 +163,8 @@ class SmsGatewayService : Service() {
                 }
 
                 publishStatus(preferences, "sending", "وصل طلب جديد. جارٍ إرسال رابط التتبع عبر الشريحة المختارة...")
-                val result = sendSms(job, preferences.selectedSubscriptionId)
+                val sendingSubscriptionId = preferences.nextSubscriptionIdForMessage()
+                val result = sendSms(job, sendingSubscriptionId)
                 val pending = PendingSmsReport(
                     jobId = job.id,
                     deviceId = tokenStore.deviceId(),
@@ -238,7 +239,7 @@ class SmsGatewayService : Service() {
     private fun publishReportedSmsStatus(preferences: AppPreferences, report: PendingSmsReport) {
         val message = when (report.status) {
             "submitted" -> "تم تسجيل قبول Android لرسالة التتبع لدى تاجر تراك. هذا لا يعني تأكيد وصولها إلى العميل."
-            "failed" -> "تم تسجيل تعذّر إرسال الرسالة. سيتعامل تاجر تراك مع إعادة المحاولة وفق سياسة الطلب."
+            "failed" -> "تعذّر إرسال الرسالة: " + (report.error ?: "سبب غير محدد.") + " تم تسجيل النتيجة لدى تاجر تراك."
             else -> "تم تسجيل أن نتيجة الرسالة غير مؤكدة. لن يعيد الهاتف إرسالها تلقائياً لتجنب التكرار."
         }
         publishStatus(preferences, "connected", message)

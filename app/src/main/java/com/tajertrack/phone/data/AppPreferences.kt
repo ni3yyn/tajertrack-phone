@@ -7,7 +7,10 @@ class AppPreferences(context: Context) {
 
     var selectedSubscriptionId: Int
         get() = preferences.getInt(KEY_SUBSCRIPTION_ID, -1)
-        set(value) = preferences.edit().putInt(KEY_SUBSCRIPTION_ID, value).apply()
+        set(value) = preferences.edit()
+            .putInt(KEY_SUBSCRIPTION_ID, value)
+            .putInt(KEY_NEXT_SIM_SLOT, 0)
+            .apply()
 
     var relayEnabled: Boolean
         get() = preferences.getBoolean(KEY_RELAY_ENABLED, false)
@@ -16,6 +19,34 @@ class AppPreferences(context: Context) {
     var smsSetupUnlocked: Boolean
         get() = preferences.getBoolean(KEY_SMS_SETUP_UNLOCKED, false)
         set(value) = preferences.edit().putBoolean(KEY_SMS_SETUP_UNLOCKED, value).apply()
+
+    var secondarySubscriptionId: Int
+        get() = preferences.getInt(KEY_SECONDARY_SUBSCRIPTION_ID, -1)
+        set(value) = preferences.edit()
+            .putInt(KEY_SECONDARY_SUBSCRIPTION_ID, value)
+            .putInt(KEY_NEXT_SIM_SLOT, 0)
+            .apply()
+
+    var alternateSimsEnabled: Boolean
+        get() = preferences.getBoolean(KEY_ALTERNATE_SIMS_ENABLED, false)
+        set(value) = preferences.edit()
+            .putBoolean(KEY_ALTERNATE_SIMS_ENABLED, value)
+            .putInt(KEY_NEXT_SIM_SLOT, 0)
+            .apply()
+
+    /** Picks one configured SIM and durably advances the next-message rotation before sending. */
+    fun nextSubscriptionIdForMessage(): Int {
+        val primary = selectedSubscriptionId
+        val secondary = secondarySubscriptionId
+        if (!alternateSimsEnabled || primary < 0 || secondary < 0 || primary == secondary) {
+            return primary
+        }
+
+        val nextSlot = preferences.getInt(KEY_NEXT_SIM_SLOT, 0).coerceIn(0, 1)
+        val chosen = if (nextSlot == 0) primary else secondary
+        preferences.edit().putInt(KEY_NEXT_SIM_SLOT, if (nextSlot == 0) 1 else 0).commit()
+        return chosen
+    }
 
     var relayConnectionState: String
         get() = preferences.getString(KEY_RELAY_CONNECTION_STATE, "stopped").orEmpty()
@@ -75,6 +106,9 @@ class AppPreferences(context: Context) {
         private const val KEY_SUBSCRIPTION_ID = "selected_subscription_id"
         private const val KEY_RELAY_ENABLED = "relay_enabled"
         private const val KEY_SMS_SETUP_UNLOCKED = "sms_setup_unlocked"
+        private const val KEY_SECONDARY_SUBSCRIPTION_ID = "secondary_subscription_id"
+        private const val KEY_ALTERNATE_SIMS_ENABLED = "alternate_sims_enabled"
+        private const val KEY_NEXT_SIM_SLOT = "next_sim_slot"
         private const val KEY_RELAY_CONNECTION_STATE = "relay_connection_state"
         private const val KEY_RELAY_STATUS_MESSAGE = "relay_status_message"
         private const val KEY_RELAY_STATUS_UPDATED_AT = "relay_status_updated_at"

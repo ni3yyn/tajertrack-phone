@@ -18,6 +18,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -107,11 +108,15 @@ fun PhoneHomeScreen(
     testSmsSending: Boolean,
     simChoices: List<SimChoice>,
     selectedSimId: Int,
+    secondarySimId: Int,
+    alternateSimsEnabled: Boolean,
     onConnect: () -> Unit,
     onStartRelay: () -> Unit,
     onStopRelay: () -> Unit,
     onSendTestSms: () -> Unit,
     onSelectSim: (Int) -> Unit,
+    onSelectSecondarySim: (Int) -> Unit,
+    onToggleAlternateSims: (Boolean) -> Unit,
     onReconnect: () -> Unit,
     onExitApp: () -> Unit
 ) {
@@ -243,7 +248,11 @@ fun PhoneHomeScreen(
                                     testSmsSending = testSmsSending,
                                     simChoices = simChoices,
                                     selectedSimId = selectedSimId,
+                                    secondarySimId = secondarySimId,
+                                    alternateSimsEnabled = alternateSimsEnabled,
                                     onSelectSim = onSelectSim,
+                                    onSelectSecondarySim = onSelectSecondarySim,
+                                    onToggleAlternateSims = onToggleAlternateSims,
                                     onStartRelay = onStartRelay,
                                     onStopRelay = onStopRelay,
                                     onSendTestSms = onSendTestSms,
@@ -839,7 +848,11 @@ private fun SendingPage(
     testSmsSending: Boolean,
     simChoices: List<SimChoice>,
     selectedSimId: Int,
+    secondarySimId: Int,
+    alternateSimsEnabled: Boolean,
     onSelectSim: (Int) -> Unit,
+    onSelectSecondarySim: (Int) -> Unit,
+    onToggleAlternateSims: (Boolean) -> Unit,
     onStartRelay: () -> Unit,
     onStopRelay: () -> Unit,
     onSendTestSms: () -> Unit,
@@ -934,7 +947,89 @@ private fun SendingPage(
                         ) {
                             Spacer(Modifier.height(14.dp))
                             if (simChoices.isNotEmpty()) {
-                                SimPicker(simChoices, selectedSimId, onSelectSim)
+                                SimPicker(
+                                    sims = simChoices,
+                                    selectedSimId = selectedSimId,
+                                    onSelect = onSelectSim,
+                                    placeholder = "الشريحة الأساسية"
+                                )
+                                AnimatedVisibility(
+                                    visible = simChoices.size >= 2,
+                                    enter = fadeIn(tween(180)) + androidx.compose.animation.expandVertically(tween(220)),
+                                    exit = fadeOut(tween(120)) + androidx.compose.animation.shrinkVertically(tween(180))
+                                ) {
+                                    Column {
+                                        Spacer(Modifier.height(13.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    "التناوب بين شريحتين",
+                                                    fontSize = 12.sp,
+                                                    color = TajerInk,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                                Spacer(Modifier.height(3.dp))
+                                                Text(
+                                                    "اختياري — يرسل طلباً من كل شريحة بالتتابع.",
+                                                    fontSize = 10.sp,
+                                                    color = TajerMuted,
+                                                    lineHeight = 17.sp
+                                                )
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(22.dp)
+                                                    .background(if (alternateSimsEnabled) TajerForest else TajerSurface)
+                                                    .border(
+                                                        width = 1.dp,
+                                                        color = if (alternateSimsEnabled) TajerForest else TajerBorder,
+                                                        shape = RectangleShape
+                                                    )
+                                                    .clickable { onToggleAlternateSims(!alternateSimsEnabled) },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    if (alternateSimsEnabled) "✓" else "",
+                                                    color = Color.White,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                        AnimatedVisibility(
+                                            visible = alternateSimsEnabled,
+                                            enter = fadeIn(tween(160)) + androidx.compose.animation.expandVertically(tween(180)),
+                                            exit = fadeOut(tween(120)) + androidx.compose.animation.shrinkVertically(tween(150))
+                                        ) {
+                                            Column {
+                                                Spacer(Modifier.height(10.dp))
+                                                Text(
+                                                    "الشريحة الثانية",
+                                                    fontSize = 10.sp,
+                                                    color = TajerMuted
+                                                )
+                                                Spacer(Modifier.height(5.dp))
+                                                SimPicker(
+                                                    sims = simChoices.filterNot { it.subscriptionId == selectedSimId },
+                                                    selectedSimId = secondarySimId,
+                                                    onSelect = onSelectSecondarySim,
+                                                    placeholder = "اختر الشريحة الثانية"
+                                                )
+                                                Spacer(Modifier.height(5.dp))
+                                                Text(
+                                                    "سيبدأ التناوب بالشريحة الأساسية، ثم الثانية. لا يتم التبديل تلقائياً إذا تعطلت إحدى الشريحتين.",
+                                                    fontSize = 10.sp,
+                                                    color = TajerMuted,
+                                                    lineHeight = 17.sp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             } else {
                                 NoticePanel(
                                     title = "لا توجد شريحة متاحة",
@@ -1059,7 +1154,7 @@ private fun SendingPage(
                                 )
                             }
                             Text(
-                                if (testSmsSending) "جارٍ إرسال الرسالة التجريبية..." else "إرسال رسالة SMS تجريبية",
+                                if (testSmsSending) "جارٍ إرسال الرسالة التجريبية..." else if (alternateSimsEnabled) "اختبار الشريحة الأساسية" else "إرسال رسالة SMS تجريبية",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -1067,7 +1162,11 @@ private fun SendingPage(
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "يرسل رسالة اختبار واحدة إلى رقم الهاتف المسجل في حساب متجرك، باستخدام شريحة الإرسال المختارة. قد تُحتسب رسوم SMS العادية.",
+                        if (alternateSimsEnabled) {
+                            "يرسل الاختبار رسالة واحدة عبر الشريحة الأساسية فقط. رسائل الطلبات تتناوب بين الشريحتين عند تفعيل الخيار. قد تُحتسب رسوم SMS العادية."
+                        } else {
+                            "يرسل رسالة اختبار واحدة إلى رقم الهاتف المسجل في حساب متجرك، باستخدام شريحة الإرسال المختارة. قد تُحتسب رسوم SMS العادية."
+                        },
                         fontSize = 10.sp,
                         lineHeight = 18.sp,
                         color = TajerMuted
@@ -1197,7 +1296,8 @@ private fun FeatureRow(icon: ImageVector, title: String, detail: String) {
 private fun SimPicker(
     sims: List<SimChoice>,
     selectedSimId: Int,
-    onSelect: (Int) -> Unit
+    onSelect: (Int) -> Unit,
+    placeholder: String
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selected = sims.firstOrNull { it.subscriptionId == selectedSimId }
@@ -1223,7 +1323,7 @@ private fun SimPicker(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        selected?.label ?: if (sims.isEmpty()) "لا توجد شريحة متاحة" else "اختر شريحة الإرسال",
+                        selected?.label ?: if (sims.isEmpty()) "لا توجد شريحة متاحة" else placeholder,
                         fontSize = 12.sp,
                         color = if (sims.isEmpty()) TajerMuted else TajerInk,
                         fontWeight = FontWeight.Medium

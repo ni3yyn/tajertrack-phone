@@ -47,6 +47,8 @@ class MainActivity : ComponentActivity() {
     private var statusMessage by mutableStateOf("")
     private var simChoices by mutableStateOf(emptyList<SimChoice>())
     private var selectedSimId by mutableStateOf(-1)
+    private var secondarySimId by mutableStateOf(-1)
+    private var alternateSimsEnabled by mutableStateOf(false)
     private var isPairing by mutableStateOf(false)
     private var simSetupUnlocked by mutableStateOf(false)
     private var isSendingTestSms by mutableStateOf(false)
@@ -100,11 +102,15 @@ class MainActivity : ComponentActivity() {
                     testSmsSending = isSendingTestSms,
                     simChoices = simChoices,
                     selectedSimId = selectedSimId,
+                    secondarySimId = secondarySimId,
+                    alternateSimsEnabled = alternateSimsEnabled,
                     onConnect = ::openPairingPage,
                     onStartRelay = ::requestPermissionsAndStart,
                     onStopRelay = ::stopRelay,
                     onSendTestSms = ::sendTestSms,
                     onSelectSim = ::selectSim,
+                    onSelectSecondarySim = ::selectSecondarySim,
+                    onToggleAlternateSims = ::toggleAlternateSims,
                     onReconnect = ::openPairingPage,
                     onExitApp = { finish() }
                 )
@@ -162,6 +168,8 @@ class MainActivity : ComponentActivity() {
         simSetupUnlocked = permissionsGranted && (preferences.smsSetupUnlocked || preferences.relayEnabled)
         if (!permissionsGranted) preferences.smsSetupUnlocked = false
         selectedSimId = preferences.selectedSubscriptionId
+        secondarySimId = preferences.secondarySubscriptionId
+        alternateSimsEnabled = preferences.alternateSimsEnabled
     }
 
     private fun openPairingPage() {
@@ -278,12 +286,56 @@ class MainActivity : ComponentActivity() {
             }
             preferences.selectedSubscriptionId = selectedSimId
         }
+
+        if (
+            secondarySimId == selectedSimId ||
+            simChoices.none { it.subscriptionId == secondarySimId }
+        ) {
+            secondarySimId = -1
+            preferences.secondarySubscriptionId = -1
+            if (alternateSimsEnabled) {
+                alternateSimsEnabled = false
+                preferences.alternateSimsEnabled = false
+                statusMessage = "لم تعد الشريحتان المحددتان متاحتين. عُطّل التناوب؛ اختر الشريحة الثانية من جديد."
+            }
+        }
     }
 
     private fun selectSim(subscriptionId: Int) {
+        if (subscriptionId == secondarySimId) {
+            val previousPrimary = selectedSimId
+            secondarySimId = previousPrimary
+            preferences.secondarySubscriptionId = previousPrimary
+        }
         selectedSimId = subscriptionId
         preferences.selectedSubscriptionId = subscriptionId
-        statusMessage = "تم اختيار الشريحة. يمكنك تفعيل إرسال الرسائل الآن."
+        statusMessage = "تم اختيار الشريحة الأساسية. يبدأ التناوب منها عند تفعيله."
+    }
+
+    private fun selectSecondarySim(subscriptionId: Int) {
+        if (subscriptionId == selectedSimId) return
+        secondarySimId = subscriptionId
+        preferences.secondarySubscriptionId = subscriptionId
+        statusMessage = "تم اختيار الشريحة الثانية. يمكنك تفعيل التناوب بين الشريحتين."
+    }
+
+    private fun toggleAlternateSims(enabled: Boolean) {
+        if (enabled) {
+            if (selectedSimId < 0 || secondarySimId < 0 || selectedSimId == secondarySimId ||
+                simChoices.none { it.subscriptionId == selectedSimId } ||
+                simChoices.none { it.subscriptionId == secondarySimId }
+            ) {
+                statusMessage = "اختر شريحتين فعالتين مختلفتين أولاً لتفعيل التناوب."
+                return
+            }
+        }
+        alternateSimsEnabled = enabled
+        preferences.alternateSimsEnabled = enabled
+        statusMessage = if (enabled) {
+            "تم تفعيل التناوب. يبدأ الإرسال بالشريحة الأساسية، ثم الثانية، بالتتابع لكل طلب."
+        } else {
+            "تم إيقاف التناوب. سيستخدم التطبيق الشريحة الأساسية فقط."
+        }
     }
 
     private fun startRelay() {
@@ -293,6 +345,14 @@ class MainActivity : ComponentActivity() {
         }
         if (simChoices.isEmpty() || selectedSimId < 0) {
             statusMessage = "لم يتم العثور على شريحة جاهزة. أدخل شريحة اتصال وامنح إذن الوصول إليها."
+            return
+        }
+        if (alternateSimsEnabled && (
+            secondarySimId < 0 ||
+            secondarySimId == selectedSimId ||
+            simChoices.none { it.subscriptionId == secondarySimId }
+        )) {
+            statusMessage = "شريحة التناوب الثانية غير متاحة. اختر شريحتين فعالتين أو أوقف التناوب."
             return
         }
 
