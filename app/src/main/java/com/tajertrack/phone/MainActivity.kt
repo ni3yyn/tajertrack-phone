@@ -344,7 +344,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val TEST_SMS_RESULT_TIMEOUT_MS = 60_000L
-        private const val TEST_SMS_MESSAGE = "تاجر تراك: تم إعداد إرسال الرسائل بنجاح."
     }
 }
 
