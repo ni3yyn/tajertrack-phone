@@ -1,5 +1,7 @@
 package com.tajertrack.phone.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.ui.graphics.RectangleShape
 
 import androidx.activity.compose.BackHandler
@@ -36,6 +38,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CellTower
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Sms
@@ -73,6 +76,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -86,7 +90,8 @@ import kotlinx.coroutines.launch
 private enum class PhoneDestination {
     Home,
     Connection,
-    Sending
+    Sending,
+    About
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,6 +125,7 @@ fun PhoneHomeScreen(
             PhoneDestination.Home -> "الرئيسية"
             PhoneDestination.Connection -> "ربط المتجر"
             PhoneDestination.Sending -> "إرسال الرسائل"
+            PhoneDestination.About -> "حول التطبيق"
         }
 
         Box(Modifier.fillMaxSize()) {
@@ -242,6 +248,7 @@ fun PhoneHomeScreen(
                                         onReconnect()
                                     }
                                 )
+                                PhoneDestination.About -> AboutPage()
                             }
                         }
                     }
@@ -337,6 +344,12 @@ private fun PhoneNavigationDrawer(
             icon = Icons.Outlined.Sms,
             selected = destination == PhoneDestination.Sending,
             onClick = { onNavigate(PhoneDestination.Sending) }
+        )
+        DrawerItem(
+            title = "حول التطبيق",
+            icon = Icons.Outlined.Info,
+            selected = destination == PhoneDestination.About,
+            onClick = { onNavigate(PhoneDestination.About) }
         )
 
         Spacer(Modifier.height(26.dp))
@@ -1354,5 +1367,110 @@ private fun PhoneSplashScreen() {
                 trackColor = TajerBorder
             )
         }
+    }
+}
+
+
+private const val TAJERTRACK_WEBSITE_URL = "https://tajertrack.vercel.app"
+
+@Composable
+private fun AboutPage() {
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 22.dp)
+    ) {
+        PageIntro(
+            number = "03",
+            title = "حول التطبيق",
+            subtitle = "معلومات سريعة عن تاجر تراك فون."
+        )
+        Spacer(Modifier.height(24.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BrandMark(modifier = Modifier.size(58.dp))
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(
+                    "تاجر تراك فون",
+                    color = TajerInk,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "رفيق متجرك لإرسال روابط التتبع",
+                    color = TajerMuted,
+                    fontSize = 11.sp
+                )
+            }
+        }
+        Spacer(Modifier.height(22.dp))
+        Text(
+            "تطبيق مرافق لتاجر تراك، يستخدم شريحة هاتفك لإرسال رابط تتبع الطلب إلى العميل عند إنشاء طلب جديد. يعمل في الخلفية لاستقبال طلبات الإرسال، دون إرسال رسائل تحديث متكررة.",
+            color = TajerMuted,
+            fontSize = 12.sp,
+            lineHeight = 22.sp
+        )
+        Spacer(Modifier.height(24.dp))
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(TAJERTRACK_WEBSITE_URL))
+                        )
+                    }
+                },
+            color = TajerSage,
+            shape = RectangleShape
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 17.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Outlined.Link,
+                    contentDescription = null,
+                    tint = TajerForest,
+                    modifier = Modifier.size(21.dp)
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "موقع تاجر تراك",
+                        color = TajerInk,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "tajertrack.vercel.app",
+                        color = TajerForest,
+                        fontSize = 11.sp
+                    )
+                }
+                Text(
+                    "فتح",
+                    color = TajerForest,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        Text(
+            "تاجر تراك فون · تطبيق إرسال الرسائل عبر شريحة متجرك",
+            modifier = Modifier.fillMaxWidth(),
+            color = TajerMuted,
+            fontSize = 10.sp,
+            textAlign = TextAlign.Center
+        )
     }
 }
