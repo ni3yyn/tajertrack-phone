@@ -88,11 +88,11 @@ fun PhoneTheme(content: @Composable () -> Unit) {
         ),
         typography = TajerTypography,
         shapes = androidx.compose.material3.Shapes(
-            extraSmall = androidx.compose.foundation.shape.RectangleShape,
-            small = androidx.compose.foundation.shape.RectangleShape,
-            medium = androidx.compose.foundation.shape.RectangleShape,
-            large = androidx.compose.foundation.shape.RectangleShape,
-            extraLarge = androidx.compose.foundation.shape.RectangleShape
+            extraSmall = RectangleShape,
+            small = RectangleShape,
+            medium = RectangleShape,
+            large = RectangleShape,
+            extraLarge = RectangleShape
         ),
         content = content
     )
