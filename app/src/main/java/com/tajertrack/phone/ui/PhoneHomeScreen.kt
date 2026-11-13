@@ -67,7 +67,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.graphicsLayer
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -961,7 +961,9 @@ private fun SimPicker(
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                modifier = Modifier.background(TajerSurface).widthIn(min = 260.dp)
+                modifier = Modifier.background(TajerSurface).widthIn(min = 260.dp),
+                shape = RectangleShape,
+                containerColor = TajerSurface
             ) {
                 sims.forEach { sim ->
                     DropdownMenuItem(
