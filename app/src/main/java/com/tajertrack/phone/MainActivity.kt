@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
     private var simChoices by mutableStateOf(emptyList<SimChoice>())
     private var selectedSimId by mutableStateOf(-1)
     private var isPairing by mutableStateOf(false)
+    private var simSetupUnlocked by mutableStateOf(false)
     private var pendingStartAfterPermissions = false
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
 
@@ -53,12 +54,20 @@ class MainActivity : ComponentActivity() {
             )
         )
 
-        permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
             refreshSimChoices()
             if (pendingStartAfterPermissions) {
                 pendingStartAfterPermissions = false
-                if (requiredPermissionsGranted()) startRelay()
-                else statusMessage = "يجب السماح بإرسال الرسائل والوصول إلى معلومات شرائح الاتصال لتفعيل الخدمة."
+                if (requiredPermissionsGranted()) {
+                    simSetupUnlocked = true
+                    statusMessage = if (simChoices.isEmpty()) {
+                        "تم السماح بالأذونات. أدخل شريحة اتصال فعّالة ثم حاول مجدداً."
+                    } else {
+                        "تم السماح بالأذونات. اختر الشريحة التي سيُرسل منها رابط التتبع."
+                    }
+                } else {
+                    statusMessage = "يجب السماح بإرسال الرسائل والوصول إلى معلومات شرائح الاتصال والإشعارات لإكمال الإعداد."
+                }
             }
         }
 
@@ -73,6 +82,7 @@ class MainActivity : ComponentActivity() {
                     storeName = storeName,
                     statusMessage = statusMessage,
                     pairing = isPairing,
+                    simSetupUnlocked = simSetupUnlocked,
                     simChoices = simChoices,
                     selectedSimId = selectedSimId,
                     onConnect = ::openPairingPage,
@@ -102,6 +112,7 @@ class MainActivity : ComponentActivity() {
         isConnected = !tokenStore.readToken().isNullOrBlank()
         storeName = tokenStore.storeName()
         isRelayRunning = preferences.relayEnabled
+        simSetupUnlocked = preferences.relayEnabled && requiredPermissionsGranted()
         selectedSimId = preferences.selectedSubscriptionId
     }
 
@@ -138,7 +149,7 @@ class MainActivity : ComponentActivity() {
                 tokenStore.saveDevice(result.deviceId, result.storeName)
                 isConnected = true
                 storeName = result.storeName
-                statusMessage = "تم ربط الهاتف بنجاح. اختر الشريحة ثم فعّل الإرسال."
+                statusMessage = "تم ربط الهاتف بنجاح. انتقل إلى إعداد إرسال الرسائل لتفعيل الأذونات واختيار الشريحة."
             } catch (error: Exception) {
                 statusMessage = error.message ?: "تعذر إكمال ربط الهاتف. حاول إنشاء رابط ربط جديد."
             } finally {
@@ -149,6 +160,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestPermissionsAndStart() {
+        // First tap only unlocks SIM setup after the required Android permissions
+        // are granted. A second tap starts the relay after a SIM has been selected.
+        if (simSetupUnlocked) {
+            startRelay()
+            return
+        }
+
         if (!packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_MESSAGING)) {
             statusMessage = "هذا الهاتف لا يدعم إرسال الرسائل النصية عبر شريحة اتصال."
             return
@@ -168,7 +186,12 @@ class MainActivity : ComponentActivity() {
             permissionLauncher.launch(missing.toTypedArray())
         } else {
             refreshSimChoices()
-            startRelay()
+            simSetupUnlocked = true
+            statusMessage = if (simChoices.isEmpty()) {
+                "تم السماح بالأذونات. أدخل شريحة اتصال فعّالة ثم حاول مجدداً."
+            } else {
+                "تم السماح بالأذونات. اختر الشريحة التي سيُرسل منها رابط التتبع."
+            }
         }
     }
 
