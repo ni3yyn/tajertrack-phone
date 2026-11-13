@@ -99,6 +99,7 @@ private enum class PhoneDestination {
 fun PhoneHomeScreen(
     connected: Boolean,
     relayRunning: Boolean,
+    relayConnectionState: String,
     storeName: String,
     statusMessage: String,
     pairing: Boolean,
@@ -143,6 +144,7 @@ fun PhoneHomeScreen(
                             destination = destination,
                             connected = connected,
                             relayRunning = relayRunning,
+                            relayConnectionState = relayConnectionState,
                             storeName = storeName,
                             onNavigate = { next ->
                                 destination = next
@@ -217,6 +219,7 @@ fun PhoneHomeScreen(
                                 PhoneDestination.Home -> HomePage(
                                     connected = connected,
                                     relayRunning = relayRunning,
+                                    relayConnectionState = relayConnectionState,
                                     storeName = storeName,
                                     statusMessage = statusMessage,
                                     onOpenConnection = { destination = PhoneDestination.Connection },
@@ -233,6 +236,7 @@ fun PhoneHomeScreen(
                                 PhoneDestination.Sending -> SendingPage(
                                     connected = connected,
                                     relayRunning = relayRunning,
+                                    relayConnectionState = relayConnectionState,
                                     storeName = storeName,
                                     statusMessage = statusMessage,
                                     simSetupUnlocked = simSetupUnlocked,
@@ -297,6 +301,7 @@ private fun PhoneNavigationDrawer(
     destination: PhoneDestination,
     connected: Boolean,
     relayRunning: Boolean,
+    relayConnectionState: String,
     storeName: String,
     onNavigate: (PhoneDestination) -> Unit
 ) {
@@ -369,7 +374,13 @@ private fun PhoneNavigationDrawer(
             Spacer(Modifier.height(10.dp))
             DrawerStatusLine("المتجر", if (connected) "مرتبط" else "غير مربوط", connected)
             Spacer(Modifier.height(8.dp))
-            DrawerStatusLine("الإرسال", if (relayRunning) "يعمل" else "متوقف", relayRunning)
+            DrawerStatusLine("الإرسال", if (relayRunning) "مفعّل" else "متوقف", relayRunning)
+            Spacer(Modifier.height(8.dp))
+            DrawerStatusLine(
+                "اتصال الخادم",
+                relayConnectionLabel(relayConnectionState, relayRunning),
+                relayConnectionState == "connected" || relayConnectionState == "sending"
+            )
             if (connected && storeName.isNotBlank()) {
                 Spacer(Modifier.height(11.dp))
                 Text(
@@ -434,6 +445,34 @@ private fun DrawerItem(
     )
 }
 
+private fun relayConnectionLabel(state: String, relayRunning: Boolean): String = when (state) {
+    "connected" -> "متصل"
+    "sending" -> "جارٍ الإرسال"
+    "reporting" -> "تأكيد النتيجة"
+    "connecting" -> "جارٍ الاتصال"
+    "retrying" -> "يعاد الاتصال"
+    "offline" -> "لا يوجد إنترنت"
+    "paused" -> "متوقف مؤقتاً"
+    "needs_repair", "needs_pairing" -> "يلزم إعادة الربط"
+    "disabled" -> "موقوف من الإدارة"
+    "attention" -> "يحتاج مراجعة"
+    "stopped" -> "متوقف"
+    else -> if (relayRunning) "جارٍ الاتصال" else "متوقف"
+}
+
+private fun relayConnectionDescription(state: String): String = when (state) {
+    "connected" -> "الهاتف متصل بخادم تاجر تراك وينتظر الطلبات الجديدة."
+    "sending" -> "جارٍ إرسال رابط التتبع عبر الشريحة المختارة."
+    "reporting" -> "يحفظ الهاتف نتيجة الرسالة لدى تاجر تراك قبل استقبال طلب جديد."
+    "retrying" -> "تعذر الاتصال بالخادم. سيعيد التطبيق المحاولة تلقائياً، ولن يعيد إرسال رسالة نتيجتها معلّقة."
+    "offline" -> "لا يوجد اتصال إنترنت صالح على الهاتف. تحقق من Wi-Fi أو بيانات الهاتف."
+    "paused" -> "الخادم متاح، لكن الإرسال متوقف مؤقتاً من لوحة التحكم أو إعدادات المتجر."
+    "needs_repair", "needs_pairing" -> "انتهى ربط الهاتف. أعد ربطه من داخل التطبيق."
+    "disabled" -> "تم إيقاف هذا الهاتف من لوحة تاجر تراك."
+    "attention" -> "توجد نتيجة رسالة تحتاج إلى مراجعة في سجل الرسائل قبل إعادة إرسالها يدوياً."
+    else -> "جارٍ إنشاء اتصال بخادم تاجر تراك..."
+}
+
 @Composable
 private fun DrawerStatusLine(label: String, value: String, active: Boolean) {
     Row(
@@ -463,6 +502,7 @@ private fun DrawerStatusLine(label: String, value: String, active: Boolean) {
 private fun HomePage(
     connected: Boolean,
     relayRunning: Boolean,
+    relayConnectionState: String,
     storeName: String,
     statusMessage: String,
     onOpenConnection: () -> Unit,
@@ -499,7 +539,7 @@ private fun HomePage(
                         )
                         Spacer(Modifier.width(7.dp))
                         Text(
-                            if (relayRunning) "الإرسال يعمل" else "الإرسال متوقف",
+                            relayConnectionLabel(relayConnectionState, relayRunning),
                             color = Color.White,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold
@@ -533,7 +573,11 @@ private fun HomePage(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     HeroStatus("ربط المتجر", if (connected) "مرتبط" else "بانتظار الربط", connected)
-                    HeroStatus("خدمة الرسائل", if (relayRunning) "نشطة" else "متوقفة", relayRunning)
+                    HeroStatus(
+                        "اتصال الخادم",
+                        relayConnectionLabel(relayConnectionState, relayRunning),
+                        relayConnectionState == "connected" || relayConnectionState == "sending"
+                    )
                 }
             }
         }
@@ -788,6 +832,7 @@ private fun ConnectionPage(
 private fun SendingPage(
     connected: Boolean,
     relayRunning: Boolean,
+    relayConnectionState: String,
     storeName: String,
     statusMessage: String,
     simSetupUnlocked: Boolean,
@@ -928,7 +973,7 @@ private fun SendingPage(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            if (relayRunning) "الهاتف متصل وينتظر الطلبات الجديدة." else "فعّل الخدمة ليبدأ الهاتف استقبال الطلبات الجديدة.",
+                            if (relayRunning) relayConnectionDescription(relayConnectionState) else "فعّل الخدمة ليبدأ الهاتف استقبال الطلبات الجديدة.",
                             fontSize = 10.sp,
                             color = TajerMuted,
                             lineHeight = 18.sp

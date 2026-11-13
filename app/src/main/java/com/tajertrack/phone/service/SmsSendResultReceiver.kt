@@ -11,11 +11,16 @@ class SmsSendResultReceiver : BroadcastReceiver() {
         val jobId = intent.getStringExtra(EXTRA_JOB_ID) ?: return
         val outcome = when (resultCode) {
             Activity.RESULT_OK -> SmsSendOutcome(status = "submitted")
-            SmsManager.RESULT_ERROR_NO_SERVICE -> SmsSendOutcome("failed", "No mobile network service was available.")
-            SmsManager.RESULT_ERROR_RADIO_OFF -> SmsSendOutcome("failed", "The selected SIM radio is turned off.")
-            SmsManager.RESULT_ERROR_NULL_PDU -> SmsSendOutcome("failed", "Android could not create the SMS payload.")
-            SmsManager.RESULT_ERROR_GENERIC_FAILURE -> SmsSendOutcome("failed", "The mobile network rejected the SMS submission.")
-            else -> SmsSendOutcome("failed", "Android SMS send failed (result $resultCode).")
+            SmsManager.RESULT_ERROR_NO_SERVICE ->
+                SmsSendOutcome("failed", "لا توجد تغطية شبكة جوال على الشريحة المختارة.")
+            SmsManager.RESULT_ERROR_RADIO_OFF ->
+                SmsSendOutcome("failed", "الشريحة المختارة مغلقة أو وضع الطيران مفعّل.")
+            SmsManager.RESULT_ERROR_NULL_PDU ->
+                SmsSendOutcome("failed", "تعذر على Android تجهيز محتوى الرسالة.")
+            SmsManager.RESULT_ERROR_GENERIC_FAILURE ->
+                SmsSendOutcome("failed", "رفضت شبكة الهاتف إرسال الرسالة. تحقق من رصيد الشريحة وإعدادات الرسائل.")
+            else ->
+                SmsSendOutcome("failed", "فشل إرسال SMS من Android (رمز النتيجة " + resultCode + ").")
         }
         SmsResultBus.complete(jobId, outcome)
     }

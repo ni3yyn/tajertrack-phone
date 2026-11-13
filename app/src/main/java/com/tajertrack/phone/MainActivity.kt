@@ -28,6 +28,8 @@ import com.tajertrack.phone.service.SmsResultBus
 import com.tajertrack.phone.service.SmsSendResultReceiver
 import com.tajertrack.phone.ui.PhoneHomeScreen
 import com.tajertrack.phone.ui.PhoneTheme
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
@@ -38,6 +40,9 @@ class MainActivity : ComponentActivity() {
 
     private var isConnected by mutableStateOf(false)
     private var isRelayRunning by mutableStateOf(false)
+    private var relayConnectionState by mutableStateOf("stopped")
+    private var statusSyncJob: Job? = null
+    private var lastObservedRelayStatusAt = 0L
     private var storeName by mutableStateOf("")
     private var statusMessage by mutableStateOf("")
     private var simChoices by mutableStateOf(emptyList<SimChoice>())
@@ -87,6 +92,7 @@ class MainActivity : ComponentActivity() {
                 PhoneHomeScreen(
                     connected = isConnected,
                     relayRunning = isRelayRunning,
+                    relayConnectionState = relayConnectionState,
                     storeName = storeName,
                     statusMessage = statusMessage,
                     pairing = isPairing,
@@ -116,12 +122,42 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshConnectionState()
         refreshSimChoices()
+        startRelayStatusSync()
+    }
+
+    override fun onPause() {
+        statusSyncJob?.cancel()
+        statusSyncJob = null
+        super.onPause()
+    }
+
+    private fun startRelayStatusSync() {
+        statusSyncJob?.cancel()
+        statusSyncJob = lifecycleScope.launch {
+            while (true) {
+                isConnected = !tokenStore.readToken().isNullOrBlank()
+                storeName = tokenStore.storeName()
+                isRelayRunning = preferences.relayEnabled
+                relayConnectionState = preferences.relayConnectionState
+                val updatedAt = preferences.relayStatusUpdatedAt
+                if (updatedAt > lastObservedRelayStatusAt) {
+                    statusMessage = preferences.relayStatusMessage
+                    lastObservedRelayStatusAt = updatedAt
+                }
+                delay(1_500L)
+            }
+        }
     }
 
     private fun refreshConnectionState() {
         isConnected = !tokenStore.readToken().isNullOrBlank()
         storeName = tokenStore.storeName()
         isRelayRunning = preferences.relayEnabled
+        relayConnectionState = preferences.relayConnectionState
+        if (preferences.relayStatusUpdatedAt > lastObservedRelayStatusAt) {
+            statusMessage = preferences.relayStatusMessage
+            lastObservedRelayStatusAt = preferences.relayStatusUpdatedAt
+        }
         val permissionsGranted = requiredPermissionsGranted()
         simSetupUnlocked = permissionsGranted && (preferences.smsSetupUnlocked || preferences.relayEnabled)
         if (!permissionsGranted) preferences.smsSetupUnlocked = false
@@ -163,7 +199,7 @@ class MainActivity : ComponentActivity() {
                 storeName = result.storeName
                 statusMessage = "تم ربط الهاتف بنجاح. انتقل إلى إعداد إرسال الرسائل لتفعيل الأذونات واختيار الشريحة."
             } catch (error: Exception) {
-                statusMessage = error.message ?: "تعذر إكمال ربط الهاتف. حاول إنشاء رابط ربط جديد."
+                statusMessage = ApiClient.describeFailure(error)
             } finally {
                 isPairing = false
                 setIntent(Intent(this@MainActivity, MainActivity::class.java))
@@ -261,6 +297,11 @@ class MainActivity : ComponentActivity() {
         }
 
         preferences.relayEnabled = true
+        preferences.relayConnectionState = "connecting"
+        preferences.relayStatusMessage = "جارٍ الاتصال بخادم تاجر تراك..."
+        preferences.relayStatusUpdatedAt = System.currentTimeMillis()
+        relayConnectionState = "connecting"
+        statusMessage = preferences.relayStatusMessage
         val serviceIntent = Intent(this, SmsGatewayService::class.java)
         ContextCompat.startForegroundService(this, serviceIntent)
         isRelayRunning = true
@@ -326,8 +367,7 @@ class MainActivity : ComponentActivity() {
             } catch (error: SecurityException) {
                 statusMessage = "لا يملك التطبيق إذن إرسال SMS حالياً. راجع أذونات التطبيق في Android."
             } catch (error: Exception) {
-                statusMessage = error.message?.takeIf { it.isNotBlank() }
-                    ?: "تعذر إرسال رسالة الاختبار. تحقق من اتصال الإنترنت والشريحة ثم حاول لاحقاً."
+                statusMessage = ApiClient.describeFailure(error)
             } finally {
                 testRequestId?.let { SmsResultBus.remove(it) }
                 isSendingTestSms = false
@@ -338,8 +378,12 @@ class MainActivity : ComponentActivity() {
     private fun stopRelay() {
         stopService(Intent(this, SmsGatewayService::class.java).setAction(SmsGatewayService.ACTION_STOP))
         preferences.relayEnabled = false
+        preferences.relayConnectionState = "stopped"
+        preferences.relayStatusMessage = "تم إيقاف إرسال الرسائل من هذا الهاتف."
+        preferences.relayStatusUpdatedAt = System.currentTimeMillis()
         isRelayRunning = false
-        statusMessage = "تم إيقاف إرسال الرسائل من هذا الهاتف."
+        relayConnectionState = "stopped"
+        statusMessage = preferences.relayStatusMessage
     }
 
     companion object {

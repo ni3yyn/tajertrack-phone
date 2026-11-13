@@ -9,7 +9,11 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLException
 
 /**
  * The app talks only to TajerTrack's merchant-scoped mobile gateway API.
@@ -17,10 +21,11 @@ import java.util.concurrent.TimeUnit
  */
 class ApiClient {
     private val client = OkHttpClient.Builder()
-        .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(25, TimeUnit.SECONDS)
-        .writeTimeout(12, TimeUnit.SECONDS)
-        .callTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(35, TimeUnit.SECONDS)
+        .writeTimeout(15, TimeUnit.SECONDS)
+        .callTimeout(45, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .build()
 
     private val jsonType = "application/json; charset=utf-8".toMediaType()
@@ -36,7 +41,7 @@ class ApiClient {
         val deviceToken = response.optString("deviceToken")
         val deviceId = response.optString("deviceId")
         if (deviceToken.isBlank() || deviceId.isBlank()) {
-            throw IOException("The pairing response did not include a device credential.")
+            throw GatewayProtocolException("The pairing response did not include a device credential.")
         }
         PairingResult(
             deviceToken = deviceToken,
@@ -75,7 +80,7 @@ class ApiClient {
         val phone = response.optString("phone")
         val message = response.optString("message")
         if (phone.isBlank() || message.isBlank()) {
-            throw IOException("TajerTrack did not return a valid registered merchant phone.")
+            throw GatewayProtocolException("TajerTrack did not return a valid registered merchant phone.")
         }
         SmsTestTarget(phone = phone, message = message)
     }
@@ -85,7 +90,11 @@ class ApiClient {
             .put("jobId", jobId)
             .put("status", status)
         if (!error.isNullOrBlank()) body.put("error", error.take(500))
-        post("/api/mobile/sms-gateway/device/report", body, token)
+
+        val response = post("/api/mobile/sms-gateway/device/report", body, token)
+        if (!response.optBoolean("success")) {
+            throw GatewayProtocolException("TajerTrack did not confirm the SMS result.")
+        }
     }
 
     private fun post(path: String, payload: JSONObject, token: String?): JSONObject {
@@ -100,9 +109,60 @@ class ApiClient {
             val parsed = runCatching { JSONObject(raw) }.getOrNull()
             if (!response.isSuccessful) {
                 val serverMessage = parsed?.optString("error")?.takeIf { it.isNotBlank() }
-                throw GatewayHttpException(response.code, serverMessage ?: "TajerTrack returned HTTP ${response.code}.")
+                val retryAfterMs = response.header("Retry-After")
+                    ?.toLongOrNull()
+                    ?.times(1_000L)
+                    ?.coerceIn(1_000L, 300_000L)
+                throw GatewayHttpException(
+                    statusCode = response.code,
+                    message = serverMessage ?: "TajerTrack returned HTTP " + response.code + ".",
+                    retryAfterMs = retryAfterMs
+                )
             }
-            return parsed ?: throw IOException("TajerTrack returned an invalid response.")
+            return parsed ?: throw GatewayProtocolException("TajerTrack returned an invalid response.")
+        }
+    }
+
+    companion object {
+        fun describeFailure(error: Throwable): String {
+            val causes = generateSequence(error) { it.cause }.take(8).toList()
+
+            if (error is GatewayHttpException) {
+                return when (error.statusCode) {
+                    401, 403 -> "انتهت صلاحية ربط هذا الهاتف أو تم إيقافه. أعد ربطه من التطبيق."
+                    404 -> "مسار خدمة الهاتف غير متاح على الخادم. حدّث التطبيق أو تواصل مع دعم تاجر تراك."
+                    408, 425 -> "تأخر رد خادم تاجر تراك. سيعيد التطبيق المحاولة تلقائياً."
+                    429 -> "طلبات الاتصال كثيرة مؤقتاً. سيخفّض التطبيق عدد المحاولات تلقائياً."
+                    in 500..599 -> "خادم تاجر تراك يواجه مشكلة مؤقتة (HTTP " + error.statusCode + "). ستتم إعادة المحاولة."
+                    in 400..499 -> "رفض خادم تاجر تراك الطلب (HTTP " + error.statusCode + "). راجع الربط وحدّث التطبيق عند الحاجة."
+                    else -> "تعذّر إكمال طلب الاتصال (HTTP " + error.statusCode + "). ستتم إعادة المحاولة."
+                }
+            }
+
+            return when {
+                causes.any { it is UnknownHostException } ->
+                    "تعذّر العثور على عنوان خادم تاجر تراك. تحقق من الإنترنت أو إعدادات DNS."
+                causes.any { it is SocketTimeoutException } ->
+                    "استغرق خادم تاجر تراك وقتاً أطول من المعتاد للرد. ستتم إعادة المحاولة."
+                causes.any { it is ConnectException } ->
+                    "تعذّر إنشاء اتصال بخادم تاجر تراك. تحقق من الشبكة وحاول مجدداً."
+                causes.any { it is SSLException } ->
+                    "تعذّر إنشاء اتصال آمن بخادم تاجر تراك. تحقق من تاريخ الهاتف وإعدادات الشبكة."
+                error is GatewayProtocolException ->
+                    "وصل رد غير مكتمل من خادم تاجر تراك. سيعيد التطبيق المحاولة."
+                causes.any { it is IOException } ->
+                    "انقطع الاتصال أثناء تبادل البيانات مع تاجر تراك. سيعيد التطبيق المحاولة."
+                else ->
+                    "حدث خطأ غير متوقع أثناء الاتصال بتاجر تراك. سيعيد التطبيق المحاولة."
+            }
+        }
+
+        fun suggestedRetryDelayMs(error: Throwable, failureCount: Int): Long {
+            if (error is GatewayHttpException && error.retryAfterMs != null) {
+                return error.retryAfterMs
+            }
+            val exponent = (failureCount - 1).coerceIn(0, 4)
+            return (5_000L * (1L shl exponent)).coerceAtMost(60_000L)
         }
     }
 }
@@ -131,4 +191,10 @@ data class ClaimResult(
     val merchantDisabled: Boolean
 )
 
-class GatewayHttpException(val statusCode: Int, message: String) : IOException(message)
+class GatewayHttpException(
+    val statusCode: Int,
+    message: String,
+    val retryAfterMs: Long? = null
+) : IOException(message)
+
+class GatewayProtocolException(message: String) : IOException(message)
