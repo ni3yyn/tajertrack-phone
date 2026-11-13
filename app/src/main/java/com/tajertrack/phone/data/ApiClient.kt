@@ -66,6 +66,20 @@ class ApiClient {
         )
     }
 
+    suspend fun testSmsTarget(token: String): SmsTestTarget = withContext(Dispatchers.IO) {
+        val response = post(
+            "/api/mobile/sms-gateway/device/test-target",
+            JSONObject(),
+            token
+        )
+        val phone = response.optString("phone")
+        val message = response.optString("message")
+        if (phone.isBlank() || message.isBlank()) {
+            throw IOException("TajerTrack did not return a valid merchant test destination.")
+        }
+        SmsTestTarget(phone = phone, message = message)
+    }
+
     suspend fun report(token: String, jobId: String, status: String, error: String? = null) = withContext(Dispatchers.IO) {
         val body = JSONObject()
             .put("jobId", jobId)
@@ -101,6 +115,11 @@ data class PairingResult(
 
 data class SmsJob(
     val id: String,
+    val phone: String,
+    val message: String
+)
+
+data class SmsTestTarget(
     val phone: String,
     val message: String
 )
