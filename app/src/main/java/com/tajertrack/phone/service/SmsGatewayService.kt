@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
@@ -257,9 +259,15 @@ class SmsGatewayService : Service() {
             return SmsSendOutcome("failed", "لم يتم اختيار شريحة لإرسال الرسائل.")
         }
 
-        val activeSubscriptions = runCatching {
-            getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList.orEmpty()
-        }.getOrNull()
+        val activeSubscriptions = if (
+            checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+        ) {
+            runCatching {
+                getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList.orEmpty()
+            }.getOrNull()
+        } else {
+            return SmsSendOutcome("failed", "إذن الوصول إلى شرائح الاتصال غير متاح. افتح إعدادات التطبيق واسمح به ثم أعد اختيار الشريحة.")
+        }
         if (activeSubscriptions != null && activeSubscriptions.none { it.subscriptionId == subscriptionId }) {
             return SmsSendOutcome("failed", "الشريحة المختارة لم تعد متاحة. افتح إعداد إرسال الرسائل واختر الشريحة من جديد.")
         }
