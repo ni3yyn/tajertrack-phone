@@ -79,7 +79,8 @@ class MainActivity : ComponentActivity() {
                     onStartRelay = ::requestPermissionsAndStart,
                     onStopRelay = ::stopRelay,
                     onSelectSim = ::selectSim,
-                    onReconnect = ::openPairingPage
+                    onReconnect = ::openPairingPage,
+                    onExitApp = { finish() }
                 )
             }
         }
