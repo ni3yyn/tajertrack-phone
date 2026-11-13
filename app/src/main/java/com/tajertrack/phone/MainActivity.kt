@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity() {
                 pendingStartAfterPermissions = false
                 if (requiredPermissionsGranted()) {
                     simSetupUnlocked = true
+                    preferences.smsSetupUnlocked = true
                     statusMessage = if (simChoices.isEmpty()) {
                         "تم السماح بالأذونات. أدخل شريحة اتصال فعّالة ثم حاول مجدداً."
                     } else {
@@ -112,7 +113,9 @@ class MainActivity : ComponentActivity() {
         isConnected = !tokenStore.readToken().isNullOrBlank()
         storeName = tokenStore.storeName()
         isRelayRunning = preferences.relayEnabled
-        simSetupUnlocked = preferences.relayEnabled && requiredPermissionsGranted()
+        val permissionsGranted = requiredPermissionsGranted()
+        simSetupUnlocked = permissionsGranted && (preferences.smsSetupUnlocked || preferences.relayEnabled)
+        if (!permissionsGranted) preferences.smsSetupUnlocked = false
         selectedSimId = preferences.selectedSubscriptionId
     }
 
@@ -187,6 +190,7 @@ class MainActivity : ComponentActivity() {
         } else {
             refreshSimChoices()
             simSetupUnlocked = true
+            preferences.smsSetupUnlocked = true
             statusMessage = if (simChoices.isEmpty()) {
                 "تم السماح بالأذونات. أدخل شريحة اتصال فعّالة ثم حاول مجدداً."
             } else {
