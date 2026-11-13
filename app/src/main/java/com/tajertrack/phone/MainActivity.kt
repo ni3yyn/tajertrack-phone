@@ -1,11 +1,13 @@
 package com.tajertrack.phone
 
 import android.Manifest
+import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.telephony.SmsManager
 import android.telephony.SubscriptionManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -22,9 +24,13 @@ import com.tajertrack.phone.data.ApiClient
 import com.tajertrack.phone.data.AppPreferences
 import com.tajertrack.phone.data.DeviceTokenStore
 import com.tajertrack.phone.service.SmsGatewayService
+import com.tajertrack.phone.service.SmsResultBus
+import com.tajertrack.phone.service.SmsSendResultReceiver
 import com.tajertrack.phone.ui.PhoneHomeScreen
 import com.tajertrack.phone.ui.PhoneTheme
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     private val tokenStore by lazy { DeviceTokenStore(this) }
@@ -38,6 +44,7 @@ class MainActivity : ComponentActivity() {
     private var selectedSimId by mutableStateOf(-1)
     private var isPairing by mutableStateOf(false)
     private var simSetupUnlocked by mutableStateOf(false)
+    private var isSendingTestSms by mutableStateOf(false)
     private var pendingStartAfterPermissions = false
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
 
@@ -84,11 +91,13 @@ class MainActivity : ComponentActivity() {
                     statusMessage = statusMessage,
                     pairing = isPairing,
                     simSetupUnlocked = simSetupUnlocked,
+                    testSmsSending = isSendingTestSms,
                     simChoices = simChoices,
                     selectedSimId = selectedSimId,
                     onConnect = ::openPairingPage,
                     onStartRelay = ::requestPermissionsAndStart,
                     onStopRelay = ::stopRelay,
+                    onSendTestSms = ::sendTestSms,
                     onSelectSim = ::selectSim,
                     onReconnect = ::openPairingPage,
                     onExitApp = { finish() }
@@ -258,11 +267,83 @@ class MainActivity : ComponentActivity() {
         statusMessage = "تم تفعيل الإرسال. اترك هذا الهاتف متصلاً بالإنترنت."
     }
 
+    private fun sendTestSms() {
+        if (isSendingTestSms) return
+
+        val token = tokenStore.readToken()
+        if (!isConnected || token.isNullOrBlank()) {
+            statusMessage = "اربط متجرك أولاً قبل إرسال الرسالة التجريبية."
+            return
+        }
+        if (!simSetupUnlocked || selectedSimId < 0 || simChoices.none { it.subscriptionId == selectedSimId }) {
+            statusMessage = "امنح الأذونات واختر شريحة الإرسال أولاً."
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            statusMessage = "إذن إرسال الرسائل غير متاح. فعّله من إعدادات Android ثم أعد المحاولة."
+            return
+        }
+
+        isSendingTestSms = true
+        statusMessage = "جارٍ تجهيز رسالة الاختبار إلى رقم خدمة العملاء المحفوظ..."
+        lifecycleScope.launch {
+            var testRequestId: String? = null
+            try {
+                val target = ApiClient().testSmsTarget(token)
+                val requestId = UUID.randomUUID().toString()
+                testRequestId = requestId
+                val result = SmsResultBus.register(requestId)
+
+                val sentIntent = Intent(this@MainActivity, SmsSendResultReceiver::class.java).apply {
+                    action = SmsSendResultReceiver.ACTION_SMS_SENT
+                    putExtra(SmsSendResultReceiver.EXTRA_JOB_ID, requestId)
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    this@MainActivity,
+                    requestId.hashCode(),
+                    sentIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                val manager = if (Build.VERSION.SDK_INT >= 31) {
+                    getSystemService(SmsManager::class.java).createForSubscriptionId(selectedSimId)
+                } else {
+                    @Suppress("DEPRECATION")
+                    SmsManager.getSmsManagerForSubscriptionId(selectedSimId)
+                }
+
+                manager.sendTextMessage(target.phone, null, target.message, pendingIntent, null)
+                val outcome = withTimeoutOrNull(TEST_SMS_RESULT_TIMEOUT_MS) { result.await() }
+
+                statusMessage = when {
+                    outcome == null ->
+                        "لم يؤكد Android نتيجة رسالة الاختبار إلى ${target.phone}. لا تضغط إرسال مجدداً قبل التحقق من وصولها."
+                    outcome.status == "submitted" ->
+                        "أرسل Android رسالة الاختبار إلى ${target.phone}. تحقق من وصولها؛ تأكيد Android يعني قبولها للإرسال عبر الشبكة ولا يضمن التسليم."
+                    else ->
+                        "تعذر إرسال رسالة الاختبار إلى ${target.phone}. ${outcome.error.orEmpty()}"
+                }
+            } catch (error: SecurityException) {
+                statusMessage = "لا يملك التطبيق إذن إرسال SMS حالياً. راجع أذونات التطبيق في Android."
+            } catch (error: Exception) {
+                statusMessage = error.message?.takeIf { it.isNotBlank() }
+                    ?: "تعذر إرسال رسالة الاختبار. تحقق من اتصال الإنترنت والشريحة ثم حاول لاحقاً."
+            } finally {
+                testRequestId?.let { SmsResultBus.remove(it) }
+                isSendingTestSms = false
+            }
+        }
+    }
+
     private fun stopRelay() {
         stopService(Intent(this, SmsGatewayService::class.java).setAction(SmsGatewayService.ACTION_STOP))
         preferences.relayEnabled = false
         isRelayRunning = false
         statusMessage = "تم إيقاف إرسال الرسائل من هذا الهاتف."
+    }
+
+    companion object {
+        private const val TEST_SMS_RESULT_TIMEOUT_MS = 60_000L
     }
 }
 
