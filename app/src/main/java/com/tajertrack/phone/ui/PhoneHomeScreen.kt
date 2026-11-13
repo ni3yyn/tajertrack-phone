@@ -48,7 +48,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
@@ -204,6 +203,7 @@ fun PhoneHomeScreen(
                                     connected = connected,
                                     relayRunning = relayRunning,
                                     storeName = storeName,
+                                    statusMessage = statusMessage,
                                     onOpenConnection = { destination = PhoneDestination.Connection },
                                     onOpenSending = { destination = PhoneDestination.Sending }
                                 )
@@ -211,6 +211,7 @@ fun PhoneHomeScreen(
                                     connected = connected,
                                     storeName = storeName,
                                     pairing = pairing,
+                                    statusMessage = statusMessage,
                                     onConnect = onConnect
                                 )
                                 PhoneDestination.Sending -> SendingPage(
@@ -341,7 +342,7 @@ private fun PhoneNavigationDrawer(
                 )
             }
         }
-        Spacer(Modifier.weight(1f, fill = false))
+        Spacer(Modifier.height(26.dp))
         Text(
             "تاجر تراك فون",
             modifier = Modifier.padding(horizontal = 22.dp),
@@ -424,6 +425,7 @@ private fun HomePage(
     connected: Boolean,
     relayRunning: Boolean,
     storeName: String,
+    statusMessage: String,
     onOpenConnection: () -> Unit,
     onOpenSending: () -> Unit
 ) {
@@ -532,6 +534,17 @@ private fun HomePage(
             detail = "اترك الهاتف متصلاً بالإنترنت وبالشاحن عند الحاجة حتى يستقبل الطلبات الجديدة."
         )
         Spacer(Modifier.height(26.dp))
+        AnimatedVisibility(
+            visible = statusMessage.isNotBlank(),
+            enter = fadeIn(tween(180)) + androidx.compose.animation.expandVertically(tween(180)),
+            exit = fadeOut(tween(120)) + androidx.compose.animation.shrinkVertically(tween(120))
+        ) {
+            Column {
+                Spacer(Modifier.height(16.dp))
+                NoticePanel("حالة التطبيق", statusMessage, NoticeTone.Neutral)
+            }
+        }
+        Spacer(Modifier.height(22.dp))
         Text(
             "تاجر تراك فون · رفيق متجرك لإرسال روابط التتبع",
             modifier = Modifier.fillMaxWidth(),
@@ -562,6 +575,7 @@ private fun ConnectionPage(
     connected: Boolean,
     storeName: String,
     pairing: Boolean,
+    statusMessage: String,
     onConnect: () -> Unit
 ) {
     Column(
@@ -640,6 +654,16 @@ private fun ConnectionPage(
             fontSize = 11.sp,
             lineHeight = 20.sp
         )
+        AnimatedVisibility(
+            visible = statusMessage.isNotBlank(),
+            enter = fadeIn(tween(180)) + androidx.compose.animation.expandVertically(tween(180)),
+            exit = fadeOut(tween(120)) + androidx.compose.animation.shrinkVertically(tween(120))
+        ) {
+            Column {
+                Spacer(Modifier.height(16.dp))
+                NoticePanel("حالة الربط", statusMessage, NoticeTone.Neutral)
+            }
+        }
     }
 }
 
@@ -870,12 +894,7 @@ private fun NativeActionRow(
                 Spacer(Modifier.height(4.dp))
                 Text(detail, fontSize = 10.sp, color = TajerMuted, lineHeight = 16.sp)
             }
-            Icon(
-                Icons.Outlined.Link,
-                contentDescription = null,
-                tint = TajerMuted,
-                modifier = Modifier.size(16.dp)
-            )
+            Text("فتح", fontSize = 10.sp, color = TajerMuted, fontWeight = FontWeight.SemiBold)
         }
     }
 }
