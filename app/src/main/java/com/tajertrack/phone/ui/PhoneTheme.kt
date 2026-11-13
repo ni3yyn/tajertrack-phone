@@ -87,13 +87,6 @@ fun PhoneTheme(content: @Composable () -> Unit) {
             onError = Color.White
         ),
         typography = TajerTypography,
-        shapes = androidx.compose.material3.Shapes(
-            extraSmall = RectangleShape,
-            small = RectangleShape,
-            medium = RectangleShape,
-            large = RectangleShape,
-            extraLarge = RectangleShape
-        ),
         content = content
     )
 }
