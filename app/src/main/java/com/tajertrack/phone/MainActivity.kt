@@ -362,6 +362,14 @@ class MainActivity : ComponentActivity() {
 
     @Suppress("DEPRECATION")
     private fun readSelectedSimPhoneNumber(subscriptionId: Int): String? {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_PHONE_NUMBERS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return null
+        }
+
         val rawNumber = runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 getSystemService(SubscriptionManager::class.java).getPhoneNumber(subscriptionId)
