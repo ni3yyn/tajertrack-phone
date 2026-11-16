@@ -76,9 +76,9 @@ class SmsGatewayService : Service() {
     private suspend fun runRelay() {
         val tokenStore = DeviceTokenStore(this)
         val preferences = AppPreferences(this)
-        val token = tokenStore.readToken()
-        if (token.isNullOrBlank()) {
-            publishStatus(preferences, "needs_pairing", "اربط الهاتف بمتجرك أولاً لتشغيل خدمة الرسائل.")
+        var profiles = tokenStore.readProfiles()
+        if (profiles.isEmpty()) {
+            publishStatus(preferences, "needs_pairing", "اربط هذا الهاتف بخط إرسال واحد على الأقل من إعدادات متجرك.")
             stopRelay()
             return
         }
@@ -91,34 +91,45 @@ class SmsGatewayService : Service() {
 
         while (!stopping.get()) {
             try {
-                // Report the previous outcome before claiming anything else. If the
-                // HTTP response is lost, retry the report instead of sending again.
+                profiles = tokenStore.readProfiles()
+                if (profiles.isEmpty()) {
+                    publishStatus(preferences, "needs_pairing", "لم يعد لهذا الهاتف خط إرسال مرتبط. أنشئ دعوة جديدة من لوحة المتجر.")
+                    stopRelay()
+                    return
+                }
+
+                // Persisted results are reported with the exact line credential
+                // that claimed the job. Never claim another job before this report.
                 val pendingReport = inMemoryPendingReport ?: preferences.pendingSmsReport()
                 if (pendingReport != null) {
-                    val currentDeviceId = tokenStore.deviceId()
-                    if (pendingReport.deviceId.isNotBlank() && pendingReport.deviceId != currentDeviceId) {
+                    val reportProfile = profiles.firstOrNull { it.deviceId == pendingReport.deviceId }
+                    if (reportProfile == null) {
                         preferences.clearPendingSmsReport(pendingReport.jobId)
                         inMemoryPendingReport = null
                         publishStatus(
                             preferences,
                             "attention",
-                            "توجد نتيجة رسالة من ربط سابق لم تعد صالحة لهذا الهاتف. لن يعاد إرسال الرسالة تلقائياً."
+                            "تعذر تسجيل نتيجة رسالة من خط ربط سابق. راجع سجل الرسائل قبل أي إعادة يدوية؛ لن يعيد الهاتف إرسالها تلقائياً."
                         )
                     } else {
                         try {
                             publishStatus(preferences, "reporting", "جارٍ تأكيد نتيجة الرسالة السابقة مع تاجر تراك...")
-                            api.report(token, pendingReport.jobId, pendingReport.status, pendingReport.error)
+                            api.report(reportProfile.token, pendingReport.jobId, pendingReport.status, pendingReport.error)
                             preferences.clearPendingSmsReport(pendingReport.jobId)
                             inMemoryPendingReport = null
                             markServerSuccess(preferences)
                             publishReportedSmsStatus(preferences, pendingReport)
                         } catch (error: GatewayHttpException) {
                             if (error.statusCode == 401 || error.statusCode == 403) {
-                                publishStatus(preferences, "needs_repair", ApiClient.describeFailure(error))
-                                stopRelay(clearPairing = true)
-                                return
-                            }
-                            if (error.statusCode in setOf(400, 404, 409, 422)) {
+                                tokenStore.removeProfile(reportProfile.deviceId)
+                                preferences.clearPendingSmsReport(pendingReport.jobId)
+                                inMemoryPendingReport = null
+                                publishStatus(
+                                    preferences,
+                                    "attention",
+                                    "تم إلغاء صلاحية خط إرسال سابق. لم تتم إعادة الرسالة تلقائياً لتجنب التكرار."
+                                )
+                            } else if (error.statusCode in setOf(400, 404, 409, 422)) {
                                 preferences.clearPendingSmsReport(pendingReport.jobId)
                                 inMemoryPendingReport = null
                                 publishStatus(
@@ -133,54 +144,134 @@ class SmsGatewayService : Service() {
                     }
                 }
 
-                val claim = api.claim(token)
-                consecutiveFailures = 0
-                idleDelayMs = IDLE_DELAY_MIN_MS
-                markServerSuccess(preferences)
-
-                if (claim.deviceDisabled) {
-                    publishStatus(preferences, "disabled", "تم إيقاف هذا الهاتف من لوحة تاجر تراك. تواصل مع مسؤول المتجر.")
+                profiles = tokenStore.readProfiles()
+                if (profiles.isEmpty()) {
+                    publishStatus(preferences, "needs_pairing", "لم يعد لهذا الهاتف خط إرسال مرتبط.")
                     stopRelay()
                     return
                 }
-                if (claim.gatewayPaused) {
-                    publishStatus(preferences, "paused", "الخادم متاح، لكن خدمة SMS متوقفة مؤقتاً من لوحة تاجر تراك.")
-                    delay(PAUSED_DELAY_MS)
-                    continue
-                }
-                if (claim.merchantDisabled) {
-                    publishStatus(preferences, "paused", "الخادم متاح، لكن تفعيل SMS متوقف من إعدادات المتجر.")
+
+                if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+                    publishStatus(
+                        preferences,
+                        "attention",
+                        "إذن الوصول إلى شرائح الاتصال غير متاح. اسمح به من إعدادات Android حتى يطابق التطبيق شبكة العميل بالشريحة الصحيحة."
+                    )
                     delay(PAUSED_DELAY_MS)
                     continue
                 }
 
-                val job = claim.job
-                if (job == null) {
-                    publishStatus(preferences, "connected", "متصل بخادم تاجر تراك — بانتظار طلب جديد.")
-                    delay(idleDelayMs)
-                    idleDelayMs = (idleDelayMs + IDLE_DELAY_STEP_MS).coerceAtMost(IDLE_DELAY_MAX_MS)
+                val activeSubscriptions = runCatching {
+                    getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList.orEmpty()
+                }.getOrElse {
+                    Log.w(TAG, "Could not read active SIM subscriptions.", it)
+                    emptyList()
+                }
+                val enabledSubscriptionIds = preferences.enabledSubscriptionIds()
+                var hasEligibleLine = false
+                var disabledLineSeen = false
+                var servicePaused = false
+                var claimedAndSent = false
+
+                for (profile in profiles) {
+                    val subscriptionId = resolveSubscriptionId(
+                        operatorCode = profile.operatorCode,
+                        activeSubscriptions = activeSubscriptions,
+                        enabledSubscriptionIds = enabledSubscriptionIds,
+                        preferences = preferences
+                    ) ?: continue
+
+                    hasEligibleLine = true
+                    val claim = try {
+                        api.claim(profile.token)
+                    } catch (error: GatewayHttpException) {
+                        if (error.statusCode == 401 || error.statusCode == 403) {
+                            tokenStore.removeProfile(profile.deviceId)
+                            Log.i(TAG, "Removed revoked sender-line credential for device " + profile.deviceId)
+                            continue
+                        }
+                        throw error
+                    }
+
+                    markServerSuccess(preferences)
+                    consecutiveFailures = 0
+                    idleDelayMs = IDLE_DELAY_MIN_MS
+
+                    if (claim.deviceDisabled) {
+                        disabledLineSeen = true
+                        continue
+                    }
+                    if (claim.gatewayPaused || claim.merchantDisabled) {
+                        servicePaused = true
+                        break
+                    }
+
+                    val job = claim.job ?: continue
+                    publishStatus(
+                        preferences,
+                        "sending",
+                        "وصل طلب جديد. جارٍ إرسال رابط التتبع من شريحة الشبكة المطابقة..."
+                    )
+                    val result = sendSms(job, subscriptionId)
+                    val pending = PendingSmsReport(
+                        jobId = job.id,
+                        deviceId = profile.deviceId,
+                        status = result.status,
+                        error = result.error
+                    )
+                    if (!preferences.savePendingSmsReport(pending)) {
+                        inMemoryPendingReport = pending
+                        Log.e(TAG, "Could not persist the pending SMS report; retaining it in memory.")
+                    }
+                    claimedAndSent = true
+                    break
+                }
+
+                if (claimedAndSent) {
+                    continue
+                }
+                if (servicePaused) {
+                    publishStatus(
+                        preferences,
+                        "paused",
+                        "الخادم متاح، لكن خدمة SMS متوقفة مؤقتاً من لوحة تاجر تراك أو إعدادات المتجر."
+                    )
+                    delay(PAUSED_DELAY_MS)
                     continue
                 }
 
-                publishStatus(preferences, "sending", "وصل طلب جديد. جارٍ إرسال رابط التتبع عبر الشريحة المختارة...")
-                val sendingSubscriptionId = preferences.nextSubscriptionIdForMessage()
-                val result = sendSms(job, sendingSubscriptionId)
-                val pending = PendingSmsReport(
-                    jobId = job.id,
-                    deviceId = tokenStore.deviceId(),
-                    status = result.status,
-                    error = result.error
-                )
-                if (!preferences.savePendingSmsReport(pending)) {
-                    inMemoryPendingReport = pending
-                    Log.e(TAG, "Could not persist the pending SMS report; retaining it in memory.")
+                if (tokenStore.readProfiles().isEmpty()) {
+                    publishStatus(preferences, "needs_pairing", "أُلغيت جميع خطوط الإرسال المرتبطة بهذا الهاتف.")
+                    stopRelay()
+                    return
                 }
+
+                when {
+                    !hasEligibleLine -> publishStatus(
+                        preferences,
+                        "attention",
+                        "لم يتم العثور على شريحة مفعّلة تطابق شبكة أي خط مرتبط. تحقق من اسم الشبكة، واختر الشريحة الأساسية أو فعّل الشريحة الثانية."
+                    )
+                    disabledLineSeen -> publishStatus(
+                        preferences,
+                        "disabled",
+                        "بعض خطوط الإرسال موقوفة من لوحة تاجر تراك. يمكن للخطوط الأخرى المطابقة أن تواصل العمل."
+                    )
+                    else -> publishStatus(
+                        preferences,
+                        "connected",
+                        "متصل بخادم تاجر تراك — ينتظر طلباً يطابق إحدى شبكات الإرسال المرتبطة."
+                    )
+                }
+
+                delay(idleDelayMs)
+                idleDelayMs = (idleDelayMs + IDLE_DELAY_STEP_MS).coerceAtMost(IDLE_DELAY_MAX_MS)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: GatewayHttpException) {
                 if (error.statusCode == 401 || error.statusCode == 403) {
                     publishStatus(preferences, "needs_repair", ApiClient.describeFailure(error))
-                    stopRelay(clearPairing = true)
+                    stopRelay()
                     return
                 }
                 consecutiveFailures += 1
@@ -211,6 +302,36 @@ class SmsGatewayService : Service() {
                 )
                 delay(retryDelay)
             }
+        }
+    }
+
+    private fun resolveSubscriptionId(
+        operatorCode: String?,
+        activeSubscriptions: List<android.telephony.SubscriptionInfo>,
+        enabledSubscriptionIds: Set<Int>,
+        preferences: AppPreferences
+    ): Int? {
+        val enabledActive = activeSubscriptions.filter {
+            it.subscriptionId in enabledSubscriptionIds
+        }
+        if (operatorCode == null) {
+            val primary = preferences.selectedSubscriptionId
+            return primary.takeIf { id -> enabledActive.any { it.subscriptionId == id } }
+        }
+
+        return enabledActive.firstOrNull {
+            detectOperator(it.carrierName?.toString().orEmpty()) == operatorCode
+        }?.subscriptionId
+    }
+
+    private fun detectOperator(carrierName: String): String? {
+        val value = carrierName.lowercase()
+        return when {
+            "djezzy" in value || "جازي" in value || "ota" in value -> "djezzy"
+            "mobilis" in value || "موبيليس" in value || "atm" in value -> "mobilis"
+            "ooredoo" in value || "اوريدو" in value || "أوريدو" in value ||
+                "wataniya" in value || "wta" in value -> "ooredoo"
+            else -> null
         }
     }
 
