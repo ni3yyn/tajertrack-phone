@@ -38,11 +38,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CellTower
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Sms
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -118,7 +120,12 @@ fun PhoneHomeScreen(
     onSelectSecondarySim: (Int) -> Unit,
     onToggleAlternateSims: (Boolean) -> Unit,
     onReconnect: () -> Unit,
-    onExitApp: () -> Unit
+    onExitApp: () -> Unit,
+    isCheckingForUpdates: Boolean,
+    updateMessage: String,
+    availableUpdateVersion: String?,
+    onCheckForUpdates: () -> Unit,
+    onDownloadUpdate: () -> Unit
 ) {
     CompositionDirectionRtl {
         val drawerState = androidx.compose.material3.rememberDrawerState(
@@ -151,6 +158,11 @@ fun PhoneHomeScreen(
                             relayRunning = relayRunning,
                             relayConnectionState = relayConnectionState,
                             storeName = storeName,
+                            isCheckingForUpdates = isCheckingForUpdates,
+                            updateMessage = updateMessage,
+                            availableUpdateVersion = availableUpdateVersion,
+                            onCheckForUpdates = onCheckForUpdates,
+                            onDownloadUpdate = onDownloadUpdate,
                             onNavigate = { next ->
                                 destination = next
                                 scope.launch { drawerState.close() }
@@ -312,6 +324,11 @@ private fun PhoneNavigationDrawer(
     relayRunning: Boolean,
     relayConnectionState: String,
     storeName: String,
+    isCheckingForUpdates: Boolean,
+    updateMessage: String,
+    availableUpdateVersion: String?,
+    onCheckForUpdates: () -> Unit,
+    onDownloadUpdate: () -> Unit,
     onNavigate: (PhoneDestination) -> Unit
 ) {
     Column(
@@ -365,6 +382,76 @@ private fun PhoneNavigationDrawer(
             selected = destination == PhoneDestination.About,
             onClick = { onNavigate(PhoneDestination.About) }
         )
+
+        Spacer(Modifier.height(22.dp))
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 22.dp),
+            color = TajerBorder
+        )
+        Spacer(Modifier.height(16.dp))
+        Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp)) {
+            Button(
+                onClick = onCheckForUpdates,
+                enabled = !isCheckingForUpdates,
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                shape = RectangleShape,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = TajerSage,
+                    contentColor = TajerForestDeep,
+                    disabledContainerColor = TajerSage,
+                    disabledContentColor = TajerMuted
+                )
+            ) {
+                if (isCheckingForUpdates) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(17.dp),
+                        color = TajerForest,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(Icons.Outlined.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    if (isCheckingForUpdates) "جارٍ التحقق من التحديثات..." else "التحقق من التحديثات",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            if (updateMessage.isNotBlank()) {
+                Spacer(Modifier.height(9.dp))
+                Text(
+                    updateMessage,
+                    color = if (availableUpdateVersion != null) TajerForest else TajerMuted,
+                    fontSize = 10.sp,
+                    lineHeight = 17.sp
+                )
+            }
+
+            if (availableUpdateVersion != null) {
+                Spacer(Modifier.height(11.dp))
+                Button(
+                    onClick = onDownloadUpdate,
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    shape = RectangleShape,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TajerForest,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(9.dp))
+                    Text(
+                        "تنزيل الإصدار $availableUpdateVersion",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
 
         Spacer(Modifier.height(26.dp))
         HorizontalDivider(
