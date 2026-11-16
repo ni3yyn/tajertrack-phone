@@ -427,11 +427,13 @@ class MainActivity : ComponentActivity() {
 
         val selectedOperator = simChoices.firstOrNull { it.subscriptionId == selectedSimId }?.operatorCode
         val profiles = tokenStore.readProfiles()
-        val testProfile = if (selectedOperator != null) {
-            profiles.firstOrNull { it.operatorCode == selectedOperator }
-        } else {
-            profiles.firstOrNull { it.operatorCode == null }
-        }
+
+        // Match the relay's legacy compatibility behavior: direct pairing
+        // creates an unscoped profile (operatorCode == null), which uses the
+        // merchant's selected primary SIM. Prefer an exact carrier profile,
+        // but allow that legacy profile when no exact carrier profile exists.
+        val testProfile = profiles.firstOrNull { it.operatorCode == selectedOperator }
+            ?: profiles.firstOrNull { it.operatorCode == null }
         val token = testProfile?.token
         if (!isConnected || token.isNullOrBlank()) {
             statusMessage = if (selectedOperator == null) {
