@@ -22,6 +22,10 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.tajertrack.phone.data.ApiClient
 import com.tajertrack.phone.data.AppPreferences
+import com.tajertrack.phone.data.AppUpdateCheckException
+import com.tajertrack.phone.data.AppUpdateCheckResult
+import com.tajertrack.phone.data.AppUpdateChecker
+import com.tajertrack.phone.data.AppUpdateInfo
 import com.tajertrack.phone.data.DeviceTokenStore
 import com.tajertrack.phone.service.SmsGatewayService
 import com.tajertrack.phone.service.SmsResultBus
@@ -52,6 +56,9 @@ class MainActivity : ComponentActivity() {
     private var isPairing by mutableStateOf(false)
     private var simSetupUnlocked by mutableStateOf(false)
     private var isSendingTestSms by mutableStateOf(false)
+    private var isCheckingForUpdates by mutableStateOf(false)
+    private var updateMessage by mutableStateOf(\"\")
+    private var availableUpdate by mutableStateOf<AppUpdateInfo?>(null)
     private var pendingStartAfterPermissions = false
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
 
@@ -112,7 +119,12 @@ class MainActivity : ComponentActivity() {
                     onSelectSecondarySim = ::selectSecondarySim,
                     onToggleAlternateSims = ::toggleAlternateSims,
                     onReconnect = ::openPairingPage,
-                    onExitApp = { finish() }
+                    onExitApp = { finish() },
+                    isCheckingForUpdates = isCheckingForUpdates,
+                    updateMessage = updateMessage,
+                    availableUpdateVersion = availableUpdate?.version,
+                    onCheckForUpdates = ::checkForUpdates,
+                    onDownloadUpdate = ::openUpdateDownload
                 )
             }
         }
@@ -499,6 +511,42 @@ class MainActivity : ComponentActivity() {
                 testRequestId?.let { SmsResultBus.remove(it) }
                 isSendingTestSms = false
             }
+        }
+    }
+
+    private fun checkForUpdates() {
+        if (isCheckingForUpdates) return
+
+        isCheckingForUpdates = true
+        availableUpdate = null
+        updateMessage = \"\"
+        lifecycleScope.launch {
+            try {
+                when (val result = AppUpdateChecker().checkForUpdates(BuildConfig.VERSION_NAME)) {
+                    AppUpdateCheckResult.UpToDate -> {
+                        updateMessage = \"تطبيقك محدّث بالفعل · الإصدار ${BuildConfig.VERSION_NAME}\"
+                    }
+                    is AppUpdateCheckResult.Available -> {
+                        availableUpdate = result.update
+                        updateMessage = \"يتوفر تحديث جديد للتطبيق.\"
+                    }
+                }
+            } catch (error: AppUpdateCheckException) {
+                updateMessage = error.message ?: \"تعذر التحقق من التحديثات. حاول مجدداً.\"
+            } catch (_: Exception) {
+                updateMessage = \"تعذر التحقق من التحديثات. تحقق من اتصال الإنترنت وحاول مجدداً.\"
+            } finally {
+                isCheckingForUpdates = false
+            }
+        }
+    }
+
+    private fun openUpdateDownload() {
+        val downloadUrl = availableUpdate?.downloadUrl ?: return
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)))
+        }.onFailure {
+            updateMessage = \"تعذر فتح رابط التنزيل. افتح متصفحاً وتحقق من اتصال الإنترنت.\"
         }
     }
 
