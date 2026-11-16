@@ -34,19 +34,16 @@ class AppPreferences(context: Context) {
             .putInt(KEY_NEXT_SIM_SLOT, 0)
             .apply()
 
-    /** Picks one configured SIM and durably advances the next-message rotation before sending. */
-    fun nextSubscriptionIdForMessage(): Int {
-        val primary = selectedSubscriptionId
-        val secondary = secondarySubscriptionId
-        if (!alternateSimsEnabled || primary < 0 || secondary < 0 || primary == secondary) {
-            return primary
-        }
-
-        val nextSlot = preferences.getInt(KEY_NEXT_SIM_SLOT, 0).coerceIn(0, 1)
-        val chosen = if (nextSlot == 0) primary else secondary
-        preferences.edit().putInt(KEY_NEXT_SIM_SLOT, if (nextSlot == 0) 1 else 0).commit()
-        return chosen
+    /** The configured SIMs are explicit allow-list entries, never a send-rotation list. */
+    fun enabledSubscriptionIds(): Set<Int> = buildSet {
+        if (selectedSubscriptionId >= 0) add(selectedSubscriptionId)
+        if (alternateSimsEnabled && secondarySubscriptionId >= 0 &&
+            secondarySubscriptionId != selectedSubscriptionId
+        ) add(secondarySubscriptionId)
     }
+
+    /** Legacy lines use the primary SIM only; carrier-aware lines select their matching enabled SIM. */
+    fun nextSubscriptionIdForMessage(): Int = selectedSubscriptionId
 
     var relayConnectionState: String
         get() = preferences.getString(KEY_RELAY_CONNECTION_STATE, "stopped").orEmpty()

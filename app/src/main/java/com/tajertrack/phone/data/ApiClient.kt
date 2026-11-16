@@ -46,7 +46,8 @@ class ApiClient {
         PairingResult(
             deviceToken = deviceToken,
             deviceId = deviceId,
-            storeName = response.optString("storeName").ifBlank { "متجرك" }
+            storeName = response.optString("storeName").ifBlank { "متجرك" },
+            operatorCode = response.optString("operatorCode").takeIf { it in setOf("djezzy", "mobilis", "ooredoo") }
         )
     }
 
@@ -170,7 +171,8 @@ class ApiClient {
 data class PairingResult(
     val deviceToken: String,
     val deviceId: String,
-    val storeName: String
+    val storeName: String,
+    val operatorCode: String?
 )
 
 data class SmsJob(

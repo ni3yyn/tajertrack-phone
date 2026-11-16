@@ -967,14 +967,14 @@ private fun SendingPage(
                                         ) {
                                             Column(Modifier.weight(1f)) {
                                                 Text(
-                                                    "التناوب بين شريحتين",
+                                                    "تفعيل الشريحة الثانية",
                                                     fontSize = 12.sp,
                                                     color = TajerInk,
                                                     fontWeight = FontWeight.SemiBold
                                                 )
                                                 Spacer(Modifier.height(3.dp))
                                                 Text(
-                                                    "اختياري — يرسل طلباً من كل شريحة بالتتابع.",
+                                                    "اختياري — يسمح باستخدام خط الشبكة المطابق للشريحة الثانية.",
                                                     fontSize = 10.sp,
                                                     color = TajerMuted,
                                                     lineHeight = 17.sp
@@ -1021,7 +1021,7 @@ private fun SendingPage(
                                                 )
                                                 Spacer(Modifier.height(5.dp))
                                                 Text(
-                                                    "سيبدأ التناوب بالشريحة الأساسية، ثم الثانية. لا يتم التبديل تلقائياً إذا تعطلت إحدى الشريحتين.",
+                                                    "يرسل التطبيق رسالة واحدة فقط، ويختار الشريحة التي تطابق شبكة رقم العميل. عند الإيقاف لن يستخدم الشريحة الثانية.",
                                                     fontSize = 10.sp,
                                                     color = TajerMuted,
                                                     lineHeight = 17.sp

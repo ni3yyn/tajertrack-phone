@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
         statusSyncJob?.cancel()
         statusSyncJob = lifecycleScope.launch {
             while (true) {
-                isConnected = !tokenStore.readToken().isNullOrBlank()
+                isConnected = tokenStore.readProfiles().isNotEmpty()
                 storeName = tokenStore.storeName()
                 isRelayRunning = preferences.relayEnabled
                 relayConnectionState = preferences.relayConnectionState
@@ -156,7 +156,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshConnectionState() {
-        isConnected = !tokenStore.readToken().isNullOrBlank()
+        isConnected = tokenStore.readProfiles().isNotEmpty()
         storeName = tokenStore.storeName()
         isRelayRunning = preferences.relayEnabled
         relayConnectionState = preferences.relayConnectionState
@@ -201,8 +201,14 @@ class MainActivity : ComponentActivity() {
                     .take(80)
                     .ifBlank { "Android phone" }
                 val result = ApiClient().completePairing(code, deviceName)
-                tokenStore.saveToken(result.deviceToken)
-                tokenStore.saveDevice(result.deviceId, result.storeName)
+                tokenStore.saveProfile(
+                    com.tajertrack.phone.data.DeviceCredential(
+                        deviceId = result.deviceId,
+                        token = result.deviceToken,
+                        storeName = result.storeName,
+                        operatorCode = result.operatorCode
+                    )
+                )
                 isConnected = true
                 storeName = result.storeName
                 statusMessage = "تم ربط الهاتف بنجاح. انتقل إلى إعداد إرسال الرسائل لتفعيل الأذونات واختيار الشريحة."
@@ -276,7 +282,7 @@ class MainActivity : ComponentActivity() {
         simChoices = subscriptions.map { subscription ->
             val slot = subscription.simSlotIndex + 1
             val carrier = subscription.carrierName?.toString()?.takeIf { it.isNotBlank() } ?: "SIM $slot"
-            SimChoice(subscription.subscriptionId, "$carrier — SIM $slot")
+            SimChoice(subscription.subscriptionId, "$carrier — SIM $slot", detectOperator(carrier))
         }
 
         if (simChoices.none { it.subscriptionId == selectedSimId }) {
@@ -301,6 +307,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun detectOperator(carrierName: String): String? {
+        val value = carrierName.lowercase()
+        return when {
+            "djezzy" in value || "جازي" in value || "ota" in value -> "djezzy"
+            "mobilis" in value || "موبيليس" in value || "atm" in value -> "mobilis"
+            "ooredoo" in value || "اوريدو" in value || "أوريدو" in value ||
+                "wataniya" in value || "wta" in value -> "ooredoo"
+            else -> null
+        }
+    }
+
     private fun selectSim(subscriptionId: Int) {
         if (subscriptionId == secondarySimId) {
             val previousPrimary = selectedSimId
@@ -309,14 +326,14 @@ class MainActivity : ComponentActivity() {
         }
         selectedSimId = subscriptionId
         preferences.selectedSubscriptionId = subscriptionId
-        statusMessage = "تم اختيار الشريحة الأساسية. يبدأ التناوب منها عند تفعيله."
+        statusMessage = "تم اختيار الشريحة الأساسية. ستُستخدم فقط مع خط الشبكة المطابق لها."
     }
 
     private fun selectSecondarySim(subscriptionId: Int) {
         if (subscriptionId == selectedSimId) return
         secondarySimId = subscriptionId
         preferences.secondarySubscriptionId = subscriptionId
-        statusMessage = "تم اختيار الشريحة الثانية. يمكنك تفعيل التناوب بين الشريحتين."
+        statusMessage = "تم اختيار الشريحة الثانية. فعّل استخدامها للسماح بخط الإرسال المطابق لها."
     }
 
     private fun toggleAlternateSims(enabled: Boolean) {
@@ -332,14 +349,14 @@ class MainActivity : ComponentActivity() {
         alternateSimsEnabled = enabled
         preferences.alternateSimsEnabled = enabled
         statusMessage = if (enabled) {
-            "تم تفعيل التناوب. يبدأ الإرسال بالشريحة الأساسية، ثم الثانية، بالتتابع لكل طلب."
+            "تم تفعيل الشريحة الثانية. يختار التطبيق تلقائياً الشريحة المطابقة لشبكة العميل، ويرسل رسالة واحدة فقط لكل طلب."
         } else {
-            "تم إيقاف التناوب. سيستخدم التطبيق الشريحة الأساسية فقط."
+            "تم إيقاف الشريحة الثانية. سيقتصر الإرسال على الشريحة الأساسية."
         }
     }
 
     private fun startRelay() {
-        if (!isConnected || tokenStore.readToken().isNullOrBlank()) {
+        if (!isConnected || tokenStore.readProfiles().isEmpty()) {
             statusMessage = "اربط متجرك أولاً قبل تفعيل إرسال الرسائل."
             return
         }
@@ -451,4 +468,4 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-data class SimChoice(val subscriptionId: Int, val label: String)
+data class SimChoice(val subscriptionId: Int, val label: String, val operatorCode: String? = null)
