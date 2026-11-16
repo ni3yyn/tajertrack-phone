@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
     private var simSetupUnlocked by mutableStateOf(false)
     private var isSendingTestSms by mutableStateOf(false)
     private var isCheckingForUpdates by mutableStateOf(false)
-    private var updateMessage by mutableStateOf(\"\")
+    private var updateMessage by mutableStateOf("")
     private var availableUpdate by mutableStateOf<AppUpdateInfo?>(null)
     private var pendingStartAfterPermissions = false
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
@@ -519,22 +519,22 @@ class MainActivity : ComponentActivity() {
 
         isCheckingForUpdates = true
         availableUpdate = null
-        updateMessage = \"\"
+        updateMessage = ""
         lifecycleScope.launch {
             try {
                 when (val result = AppUpdateChecker().checkForUpdates(BuildConfig.VERSION_NAME)) {
                     AppUpdateCheckResult.UpToDate -> {
-                        updateMessage = \"تطبيقك محدّث بالفعل · الإصدار ${BuildConfig.VERSION_NAME}\"
+                        updateMessage = "تطبيقك محدّث بالفعل · الإصدار ${BuildConfig.VERSION_NAME}"
                     }
                     is AppUpdateCheckResult.Available -> {
                         availableUpdate = result.update
-                        updateMessage = \"يتوفر تحديث جديد للتطبيق.\"
+                        updateMessage = "يتوفر تحديث جديد للتطبيق."
                     }
                 }
             } catch (error: AppUpdateCheckException) {
-                updateMessage = error.message ?: \"تعذر التحقق من التحديثات. حاول مجدداً.\"
+                updateMessage = error.message ?: "تعذر التحقق من التحديثات. حاول مجدداً."
             } catch (_: Exception) {
-                updateMessage = \"تعذر التحقق من التحديثات. تحقق من اتصال الإنترنت وحاول مجدداً.\"
+                updateMessage = "تعذر التحقق من التحديثات. تحقق من اتصال الإنترنت وحاول مجدداً."
             } finally {
                 isCheckingForUpdates = false
             }
@@ -546,7 +546,7 @@ class MainActivity : ComponentActivity() {
         runCatching {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)))
         }.onFailure {
-            updateMessage = \"تعذر فتح رابط التنزيل. افتح متصفحاً وتحقق من اتصال الإنترنت.\"
+            updateMessage = "تعذر فتح رابط التنزيل. افتح متصفحاً وتحقق من اتصال الإنترنت."
         }
     }
 
