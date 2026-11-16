@@ -134,8 +134,8 @@ class AppUpdateChecker {
     private fun validateDownloadUrl(value: String): String {
         val uri = runCatching { URI(value) }.getOrNull()
         val valid = uri != null &&
-            uri.scheme.equals("https", ignoreCase = true) &&
-            uri.host.equals("github.com", ignoreCase = true) &&
+            uri.scheme?.equals("https", ignoreCase = true) == true &&
+            uri.host?.equals("github.com", ignoreCase = true) == true &&
             uri.path.startsWith(RELEASE_DOWNLOAD_PATH)
 
         if (!valid) {
