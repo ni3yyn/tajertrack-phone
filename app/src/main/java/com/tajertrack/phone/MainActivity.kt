@@ -544,7 +544,10 @@ class MainActivity : ComponentActivity() {
     private fun openUpdateDownload() {
         val downloadUrl = availableUpdate?.downloadUrl ?: return
         runCatching {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)))
+            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)).apply {
+                addCategory(Intent.CATEGORY_BROWSABLE)
+            }
+            startActivity(browserIntent)
         }.onFailure {
             updateMessage = "تعذر فتح رابط التنزيل. افتح متصفحاً وتحقق من اتصال الإنترنت."
         }
