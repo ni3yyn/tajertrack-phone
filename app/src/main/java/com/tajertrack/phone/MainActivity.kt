@@ -282,7 +282,28 @@ class MainActivity : ComponentActivity() {
         simChoices = subscriptions.map { subscription ->
             val slot = subscription.simSlotIndex + 1
             val carrier = subscription.carrierName?.toString()?.takeIf { it.isNotBlank() } ?: "SIM $slot"
-            SimChoice(subscription.subscriptionId, "$carrier — SIM $slot", detectOperator(carrier))
+            val operatorCode = detectOperator(
+                carrierName = carrier,
+                mcc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    subscription.mccString
+                } else {
+                    @Suppress("DEPRECATION")
+                    subscription.mcc.toString()
+                },
+                mnc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    subscription.mncString
+                } else {
+                    @Suppress("DEPRECATION")
+                    subscription.mnc.toString()
+                }
+            )
+            val operatorLabel = when (operatorCode) {
+                "djezzy" -> "Djezzy"
+                "mobilis" -> "Mobilis"
+                "ooredoo" -> "Ooredoo"
+                else -> carrier
+            }
+            SimChoice(subscription.subscriptionId, "$operatorLabel — $carrier — SIM $slot", operatorCode)
         }
 
         if (simChoices.none { it.subscriptionId == selectedSimId }) {
@@ -307,7 +328,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun detectOperator(carrierName: String): String? {
+    /**
+     * Resolve the SIM operator from the network identity first (Algerian MCC 603),
+     * then fall back to Android's carrier label. Carrier labels vary by device,
+     * locale and SIM profile, so they must not be the only source of truth.
+     */
+    private fun detectOperator(carrierName: String, mcc: String?, mnc: String?): String? {
+        if (mcc?.filter(Char::isDigit) == "603") {
+            when (mnc?.filter(Char::isDigit)?.toIntOrNull()) {
+                1 -> return "mobilis"
+                2 -> return "djezzy"
+                3 -> return "ooredoo"
+            }
+        }
+
         val value = carrierName.lowercase()
         return when {
             "djezzy" in value || "جازي" in value || "ota" in value -> "djezzy"
@@ -342,16 +376,16 @@ class MainActivity : ComponentActivity() {
                 simChoices.none { it.subscriptionId == selectedSimId } ||
                 simChoices.none { it.subscriptionId == secondarySimId }
             ) {
-                statusMessage = "اختر شريحتين فعالتين مختلفتين أولاً لتفعيل التناوب."
+                statusMessage = "اختر شريحة أساسية وثانية مختلفتين أولاً لتفعيل الشريحة الثانية."
                 return
             }
         }
         alternateSimsEnabled = enabled
         preferences.alternateSimsEnabled = enabled
         statusMessage = if (enabled) {
-            "تم تفعيل الشريحة الثانية. يختار التطبيق تلقائياً الشريحة المطابقة لشبكة العميل، ويرسل رسالة واحدة فقط لكل طلب."
+            "تم السماح باستخدام الشريحة الثانية. يختار التطبيق الشريحة المطابقة لشبكة العميل ويرسل رسالة واحدة فقط لكل طلب."
         } else {
-            "تم إيقاف الشريحة الثانية. سيقتصر الإرسال على الشريحة الأساسية."
+            "تم إيقاف استخدام الشريحة الثانية. لن يرسل التطبيق منها أي رسالة."
         }
     }
 
@@ -369,7 +403,7 @@ class MainActivity : ComponentActivity() {
             secondarySimId == selectedSimId ||
             simChoices.none { it.subscriptionId == secondarySimId }
         )) {
-            statusMessage = "شريحة التناوب الثانية غير متاحة. اختر شريحتين فعالتين أو أوقف التناوب."
+            statusMessage = "الشريحة الثانية غير متاحة. اختر شريحتين فعالتين أو أوقف استخدامها."
             return
         }
 
