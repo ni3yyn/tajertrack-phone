@@ -201,7 +201,7 @@ class MainActivity : ComponentActivity() {
                     .take(80)
                     .ifBlank { "Android phone" }
                 val result = ApiClient().completePairing(code, deviceName)
-                tokenStore.saveProfile(
+                val saved = tokenStore.saveProfile(
                     com.tajertrack.phone.data.DeviceCredential(
                         deviceId = result.deviceId,
                         token = result.deviceToken,
@@ -209,6 +209,9 @@ class MainActivity : ComponentActivity() {
                         operatorCode = result.operatorCode
                     )
                 )
+                if (!saved) {
+                    throw IllegalStateException("تعذر حفظ صلاحية خط الإرسال بأمان على هذا الهاتف.")
+                }
                 isConnected = true
                 storeName = result.storeName
                 statusMessage = "تم ربط الهاتف بنجاح. انتقل إلى إعداد إرسال الرسائل لتفعيل الأذونات واختيار الشريحة."
@@ -422,9 +425,20 @@ class MainActivity : ComponentActivity() {
     private fun sendTestSms() {
         if (isSendingTestSms) return
 
-        val token = tokenStore.readToken()
+        val selectedOperator = simChoices.firstOrNull { it.subscriptionId == selectedSimId }?.operatorCode
+        val profiles = tokenStore.readProfiles()
+        val testProfile = if (selectedOperator != null) {
+            profiles.firstOrNull { it.operatorCode == selectedOperator }
+        } else {
+            profiles.firstOrNull { it.operatorCode == null }
+        }
+        val token = testProfile?.token
         if (!isConnected || token.isNullOrBlank()) {
-            statusMessage = "اربط متجرك أولاً قبل إرسال الرسالة التجريبية."
+            statusMessage = if (selectedOperator == null) {
+                "اربط خط الإرسال المطابق للشريحة المختارة قبل إرسال الرسالة التجريبية."
+            } else {
+                "لا يوجد خط ${selectedOperator} مرتبط بهذه الشريحة. اربط خط الشبكة المطابق أولاً."
+            }
             return
         }
         if (!simSetupUnlocked || selectedSimId < 0 || simChoices.none { it.subscriptionId == selectedSimId }) {
