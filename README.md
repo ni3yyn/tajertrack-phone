@@ -1,34 +1,46 @@
 # TajerTrack Phone
 
-Native Android companion for sending the one SMS tracking link created for each new TajerTrack order, using the merchant's own SIM.
+Native Android companion for sending the single tracking-link SMS created for each new TajerTrack order, using the merchant's own SIM cards.
 
-**This is not a Termux wrapper.** It is a Kotlin Android application that uses Android's `SmsManager` directly.
+**This is not a Termux wrapper.** It is a Kotlin Android application using Android's `SmsManager` directly.
 
-## Merchant experience
+## Merchant and family-device setup
 
 1. Install TajerTrack Phone from the APK download in TajerTrack.
-2. Tap **ربط المتجر**. The app opens TajerTrack in the browser; the merchant signs in there and approves this phone. The app receives a short-lived, one-time pairing code through its deep link.
-3. Allow SMS, SIM access, and notification permissions when Android asks.
-4. Choose the sending SIM when the phone has more than one active SIM.
-5. Tap **تفعيل إرسال الرسائل**. A permanent Android notification shows that the relay is active.
+2. Open the app on the phone that will send from a SIM, then keep it ready for the pairing link.
+3. In TajerTrack → Settings → SMS sender lines, choose Djezzy, Mobilis, or Ooredoo and create an invitation.
+4. Open/share that one-time invitation on the intended phone. It displays the store and carrier purpose; the invited person approves without signing in as the merchant or receiving the merchant's password.
+5. Allow SMS, SIM access, and notification permissions requested by Android.
+6. Choose the primary SIM. On dual-SIM phones, choose the secondary SIM and explicitly enable it only when it should also be used.
+7. Start the relay and keep the phone online.
 
-There is no Termux, command line, copied API token, environment file, or manual device ID.
+The merchant can pair up to three sender lines, one per carrier. They can all be installed on one multi-SIM Android phone, or distributed across separate phones belonging to relatives. Each line receives its own credential and can be paused or revoked independently from TajerTrack Settings.
 
-## What it sends
+## Carrier routing and what gets sent
 
-- One tracking URL SMS when a new order is created and SMS tracking is enabled for that merchant.
-- No repeated status-update SMS messages.
-- It uses the selected SIM in the physical Android phone. A phone number typed into a settings field cannot change the sender; the active SIM and carrier determine the sender identity.
-- Android's SMS submission callback is not a carrier delivery receipt. The app reports `submitted` only when Android reports that the send was accepted by its SMS stack.
-- If the phone cannot determine whether a message was submitted, it reports `unknown`. The backend must not automatically resend an unknown job, to avoid duplicate messages.
+- Every eligible new order creates exactly one tracking SMS job.
+- Algerian recipient prefixes are mapped centrally: 07 → Djezzy, 06 → Mobilis, 05 → Ooredoo.
+- The backend assigns the job to the corresponding sender line. The Android app then selects an enabled, active SIM whose carrier matches that line.
+- Enabling a second SIM does **not** rotate or duplicate messages. It simply makes that SIM eligible for customer numbers on its carrier. Disabling it means that handset uses only its primary SIM.
+- If the matching sender line or matching SIM is unavailable, the job remains pending. There is no silent cross-network fallback.
+- The app does not read or depend on the SIM phone number. Android/carrier APIs do not reliably expose the SIM's own MSISDN.
+- Only one link SMS is sent when a new order is created. There are no repeated status-update SMS messages.
+- Android's SMS submission callback is not a carrier delivery receipt. The app reports `submitted` only when Android accepts the send request.
+- If the result cannot be determined, it reports `unknown`. The backend does not automatically resend an unknown job, avoiding duplicate messages.
 
-## Important integration status
+Carrier prefix allocation is centralized in `detect_algerian_mobile_operator` so the mapping can be updated if numbering or portability rules change. The merchant's own tariff and SMS bundle determine actual cost; TajerTrack cannot inspect a SIM's package balance or promise that every message is free.
 
-The legacy Termux gateway still uses one global token and one global worker. The native app does **not** call those endpoints.
+## Security and device management
 
-The matching merchant-scoped backend implementation is in draft TajerTrack PR [#5](https://github.com/ni3yyn/dz-tracker/pull/5), on branch `feat/native-merchant-sms-gateway`. It includes one-time browser pairing, hashed per-phone credentials, merchant-scoped queue claiming/reporting, and admin phone inventory. The SQL migration `20261112_native_sms_gateway.sql` must be applied after the two existing SMS migrations before native pairing can work in production. The PR is not merged or deployed yet. Keep the legacy Termux gateway available during the transition: after a merchant pairs a native phone, the migration excludes that merchant from the legacy global claim function, while merchants who have not paired a native phone can continue using the old gateway. In-flight legacy jobs are marked `unknown` during the switch so they are never blindly resent.
+- A merchant-created invitation has at least 256 bits of random entropy, is stored only as a SHA-256 hash, expires after 30 minutes, and can be redeemed once.
+- Redemption creates a five-minute one-time pairing code. The phone receives a separate random device token, stored server-side only as a hash.
+- Android encrypts each line token using a non-exportable Android Keystore key.
+- A device never receives the merchant's password, browser cookie, Supabase access token, or service-role key.
+- The backend permits one active device for each merchant/carrier slot. Replacing one carrier line does not revoke the other two.
+- Merchants can pause, re-enable, or revoke each line independently. Revocation invalidates its token and converts an in-flight job to `unknown`.
+- Invite, pairing, device and queue operations are merchant-scoped. The legacy Termux gateway remains isolated from merchants that have moved to native sender lines.
 
-## Build
+## Build and distribution
 
 Requirements:
 
@@ -36,13 +48,11 @@ Requirements:
 - JDK 17
 - Gradle 8.13 (the CI workflow installs this version)
 
-Install JDK 17, Android SDK Platform 36, and Gradle 8.13. Open this folder in Android Studio and sync the Gradle project. To build from a terminal with Gradle installed:
+To build locally:
 
 ```bash
 gradle assembleDebug
 ```
-
-To generate the standard Gradle wrapper for local development, run `gradle wrapper --gradle-version 8.13` once; commit the generated `gradlew`, `gradlew.bat`, and `gradle/wrapper/` files to the new repository.
 
 The debug APK is created at:
 
@@ -50,47 +60,21 @@ The debug APK is created at:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-GitHub Actions runs `assembleDebug` and `lintDebug` and stores the APK as a workflow artifact. It is a **debug build for development/testing**, not the signed release APK that should be published on TajerTrack. A production APK needs a stable release signing key stored in GitHub Actions secrets; never commit that key to this repository.
+GitHub Actions runs the Android APK build and lint checks. Debug artifacts are for testing, not public distribution. A merchant-facing release requires a stable signing key stored in GitHub Actions secrets; never commit that key. Use the same keystore for all future updates.
 
 ## Platform behaviour
 
-- The relay runs as a user-started foreground service with a permanent notification and a partial CPU wake lock so the polling loop can continue with the screen off. Each idle poll uses one authenticated database RPC; the local delay backs off from 10 to 30 seconds. The user can stop it from the app.
-- Keeping the relay active uses additional battery; a dedicated phone should remain on its charger where practical.
-- The first version does not silently restart itself after a full phone reboot; the merchant opens the app and starts the relay again. Automatic reboot recovery will be added only after device/OEM testing.
-- Android can restrict background execution or SMS use depending on the device and OS version. Sideloading avoids Play Store distribution review, but it does not remove Android's runtime permission prompts or foreground-service rules.
-- The app does not read the SIM's phone number. Android/carrier APIs do not reliably expose it on every device. The selected SIM is what determines the outgoing line.
+- The relay is a user-started foreground service with a persistent notification and partial CPU wake lock.
+- It polls each locally eligible carrier line and backs off while idle. It can continue with the screen off while Android permits the foreground service.
+- Keeping the relay active uses battery; a dedicated phone should remain on its charger where practical.
+- It does not silently restart itself after a full phone reboot. Open the app and start it again.
+- Android/OEM versions may restrict background execution, SMS, or notifications. Runtime permission prompts and the foreground-service notification remain under Android's control.
 
 ## Repository layout
 
 ```text
 app/                 Native Android app
   src/main/          Kotlin, Compose UI, manifest and resources
-.github/workflows/   Debug build and lint
- docs/                Backend API contract and merchant flow
+.github/workflows/   Android build and lint
+docs/                Backend API contract and merchant flow
 ```
-
-## Preview builds and signed releases
-
-A preview APK can target a Vercel preview deployment without changing the production default:
-
-```bash
-gradle :app:assembleDebug -PtajertrackBaseUrl="https://your-preview-deployment.vercel.app"
-```
-
-For public merchant downloads, create one stable Android release keystore locally (keep a secure offline backup; never commit it):
-
-```bash
-keytool -genkeypair -v -keystore tajertrack-phone-release.jks -alias tajertrack-phone -keyalg RSA -keysize 2048 -validity 10000
-base64 -w 0 tajertrack-phone-release.jks
-```
-
-Copy the base64 output into the first GitHub Actions secret below, and use the alias/passwords you chose for the remaining secrets. The repository ignores `.jks` and `.keystore` files.
-
-For public merchant downloads, create one stable Android release keystore and add these GitHub Actions repository secrets:
-
-- `ANDROID_KEYSTORE_BASE64`: base64-encoded contents of the release `.jks` file
-- `ANDROID_KEYSTORE_PASSWORD`
-- `ANDROID_KEY_ALIAS`
-- `ANDROID_KEY_PASSWORD`
-
-Never commit the keystore or passwords. After configuring the secrets, push a version tag such as `v1.0.0`. The signed APK is published as `tajertrack-phone.apk` on the GitHub Release. Keep the same keystore for every future app update so Android can install updates over the existing app.

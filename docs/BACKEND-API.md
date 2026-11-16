@@ -1,105 +1,70 @@
 # TajerTrack Phone — backend contract
 
-The native app intentionally does not use `SMS_GATEWAY_DEVICE_TOKEN`, `android-sms-gateway`, or the current global claim/report endpoints. Those endpoints represent the single Termux prototype and cannot provide merchant isolation.
+The native app uses only merchant-scoped mobile gateway APIs. It does not use `SMS_GATEWAY_DEVICE_TOKEN`, the old global `android-sms-gateway` worker identity, or the legacy claim/report endpoints.
 
-The app expects these routes on the TajerTrack web origin. The corresponding implementation is currently in draft [TajerTrack PR #5](https://github.com/ni3yyn/dz-tracker/pull/5); the database migration must be applied after review and merge.
+## Routes
 
 | Route | Authentication | Purpose |
 |---|---|---|
-| `GET /mobile/sms-gateway/connect?redirect_uri=tajertrack-sms%3A%2F%2Fpair` | Existing merchant browser session | Shows the store being connected and asks the merchant to approve this phone. After approval, redirects to `tajertrack-sms://pair?code=...`. |
-| `POST /api/mobile/sms-gateway/pair/complete` | One-time pairing code | Atomically consumes the code and returns a new per-device credential. |
-| `POST /api/mobile/sms-gateway/device/claim` | Device bearer token | Heartbeats the device and leases one pending SMS job belonging only to that device's merchant. |
-| `POST /api/mobile/sms-gateway/device/report` | Device bearer token | Reports `submitted`, `failed`, or `unknown` for a job owned by that device. |
+| `POST /api/mobile/sms-gateway/invites` | Merchant browser session + same-origin request | Creates a 30-minute, single-use invitation for one operator slot. |
+| `GET /mobile/sms-gateway/connect?invite=...` | High-entropy invitation token | Shows store identity and operator without requiring the invited phone owner to sign in. |
+| `POST /mobile/sms-gateway/connect` (server action) | Single-use invite token | Redeems the invite and redirects to the app with a five-minute one-time pairing code. |
+| `POST /api/mobile/sms-gateway/pair/complete` | One-time pairing code | Atomically consumes the code and returns a new per-device credential plus operator code. |
+| `POST /api/mobile/sms-gateway/device/claim` | Device bearer token | Authenticates the line, updates heartbeat and claims only a job for its operator. |
+| `POST /api/mobile/sms-gateway/device/report` | Device bearer token | Reports `submitted`, `failed`, or `unknown` for a job held by the device. |
+| `POST /api/mobile/sms-gateway/device/manage` | Merchant browser session + same-origin request | Enables, disables, or revokes one sender line. |
 
-## Pairing
+The app never receives the merchant's Supabase password, browser cookie, long-lived user access token, or service-role key.
 
-The browser route must use the merchant's existing Supabase cookie session and resolve the authenticated user to their merchant row. The native app must never receive the merchant's Supabase password, browser cookie, Supabase service-role key, or long-lived user access token.
+## Secure pairing
 
-On approval:
+1. The merchant selects one of the fixed operator slots: `djezzy`, `mobilis`, or `ooredoo`.
+2. The invite endpoint generates a cryptographically random 256-bit token, persists only its SHA-256 hash, and sets a 30-minute expiry.
+3. The invited phone's page shows the store name, logo, and purpose. The owner explicitly approves. No merchant login is required on that device.
+4. The server atomically consumes the invitation and inserts a five-minute pairing-code hash. The raw invite and code are never stored.
+5. The Android app posts the code to `pair/complete`. The server atomically consumes it, creates a random device token, and stores only its hash.
+6. The app stores each line token encrypted with a non-exportable Android Keystore key. One installation can hold more than one line credential.
 
-1. Generate a cryptographically random, single-use pairing code with at least 128 bits of entropy.
-2. Store only a hash of the code, together with `merchant_id`, `created_by`, and an expiry no longer than five minutes.
-3. Redirect to the exact allow-listed app scheme `tajertrack-sms://pair` with the code in the query string.
-4. `pair/complete` must atomically consume the unexpired code. Reject reuse, expiry, unknown merchants, and malformed input.
-5. Generate a separate high-entropy device token. Return it once to the app; store only its hash server-side. The app encrypts it with an Android Keystore key.
-6. Register the device against that `merchant_id`. For the first release, allow one active sending phone per merchant. Re-pairing should revoke the previous phone before activating its replacement.
+There is one active native device per merchant/operator pair. Replacing Djezzy revokes only the old Djezzy device and preserves Mobilis and Ooredoo. The first carrier-specific pairing also retires the legacy unassigned device for that merchant. Disabled lines cannot be bypassed by creating a new invitation; they must be explicitly re-enabled or revoked.
 
-Suggested successful response:
+## Carrier routing
 
-```json
-{
-  "deviceId": "<device-uuid>",
-  "deviceToken": "<one-time-returned-random-token>",
-  "storeName": "اسم المتجر"
-}
-```
+The migration creates `sms_tracking_outbox.recipient_operator`, centrally derived by `public.detect_algerian_mobile_operator(text)`:
 
-## Claim request and response
+- `07xxxxxxxx` → `djezzy`
+- `06xxxxxxxx` → `mobilis`
+- `05xxxxxxxx` → `ooredoo`
 
-Request:
+The normalizer accepts local `0...`, `+213...`, `213...`, and `00213...` forms after removing presentation characters. Unknown or invalid numbers yield `NULL`; carrier-specific devices never claim those jobs.
 
-```json
-{
-  "appVersion": "0.1.0"
-}
-```
+The database creates one outbox job per order under the existing unique constraint. `poll_native_sms_gateway` authenticates the exact line token and claims only rows belonging to the same merchant with the matching `recipient_operator`. A legacy `operator_code IS NULL` device retains all-network compatibility only until it is replaced by the first carrier-specific line.
 
-Successful response with no available job:
+There is no automatic fallback to another operator. If the matching line is offline, paused, or unavailable, the job remains pending. One order still means one message. An unknown result is never automatically resent.
 
-```json
-{ "job": null }
-```
+## Claim and report semantics
 
-Successful response with a job:
+The app sends its version with each claim. The server performs token authentication, heartbeat, global and merchant pause checks, bounded leasing, and the carrier-filtered claim in one database RPC.
 
-```json
-{
-  "job": {
-    "id": "<outbox-uuid>",
-    "phone": "+2135xxxxxxxx",
-    "message": "TajerTrack - Suivez votre commande: https://tajertrack.vercel.app/t/<tracking-id>"
-  }
-}
-```
+`submitted` means Android accepted the SMS send request; it is not proof of delivery. `failed` means Android explicitly rejected the send. `unknown` means the send result is ambiguous. Unknown jobs must never be automatically resent.
 
-The `poll_native_sms_gateway` transaction must:
+The server verifies each report against the merchant and exact device lease. Late duplicate reports must be idempotent and must not downgrade a submitted job.
 
-- Authenticate the bearer token hash and resolve its device and merchant.
-- Reject revoked devices and return an explicit paused state for disabled devices.
-- Update heartbeat/app version, check the global gateway control and `merchants.sms_tracking_enabled`.
-- Claim only rows where `sms_tracking_outbox.merchant_id` equals the authenticated device's `merchant_id`.
-- Lock the job to the authenticated device ID and create a bounded lease.
-- Preserve one job per order and never return another merchant's customer data.
-- Keep the existing Algerian mobile-number validation and tracking URL construction.
-- Perform the idle-poll checks in one RPC call rather than separate auth, heartbeat, control and queue calls.
+## Merchant line controls
 
-## Report request
+- `set_native_sms_gateway_device_enabled` pauses/resumes one device. Disabling a device with a processing job moves that job to `unknown`.
+- `revoke_native_sms_gateway_device` invalidates the token and marks an in-flight job `unknown`.
+- RLS is enabled on invite storage, with direct access denied to `anon` and `authenticated`; service-role access is used by server routes.
+- Merchant ownership is resolved from the authenticated server session, never from a client-supplied merchant ID.
 
-```json
-{
-  "jobId": "<outbox-uuid>",
-  "status": "submitted",
-  "error": null
-}
-```
+## Migrations and legacy coexistence
 
-The backend must verify the job is owned by this device's merchant and that the current lease belongs to this device. Preserve these result rules:
+Apply these existing SMS migrations in order:
 
-- `submitted`: Android accepted the SMS submission. Do not describe this as confirmed delivery.
-- `failed`: Android explicitly rejected the send; use the existing bounded retry/dead-letter policy.
-- `unknown`: the send outcome is ambiguous. Do not automatically resend.
+1. `20261112_android_sms_gateway.sql`
+2. `20261112_sms_gateway_admin_manager.sql`
+3. `20261112_native_sms_gateway.sql`
+4. `20261116_sms_carrier_routing.sql`
 
-Late duplicate reports must be idempotent and must never downgrade `submitted` to `unknown` or `failed`.
+The last migration replaces the one-active-phone-per-merchant index with one active line per carrier slot, annotates pending outbox jobs, creates invitation storage, and installs the carrier-scoped pairing, polling, enable/disable, and revoke functions.
 
-## Database changes required
-
-Extend `sms_gateway_devices` with `merchant_id`, token hash, platform/app version, model label, and revocation metadata. Add a service-role-only pairing-code table. Add a unique partial index allowing one active device per merchant for the first release. Keep RLS enabled and grant no direct table access to `anon` or `authenticated`.
-
-Add a tenant-scoped claim RPC (or replace the current one with a safely versioned signature) that takes the authenticated device and merchant IDs. Do not simply change the hard-coded worker ID while leaving the global queue selection intact.
-
-The admin SMS manager should list all merchant devices, including connection heartbeat and enable/disable state. Existing primary Termux device controls must remain separate until the old agent is retired.
-
-
-## Legacy coexistence
-
-When a merchant pairs a native phone, the migration marks any processing job held by the legacy Termux worker as `unknown` before activating the new phone. The updated legacy claim RPC excludes all merchants with an unrevoked native device. Merchants without a native device continue using the old global gateway.
+The old Termux gateway remains available for merchants without a native phone. Once any native device is registered for a merchant, the legacy global worker excludes that merchant's jobs. Replacing or revoking a sender line converts only that merchant/line's in-flight sends to `unknown`; it never auto-retries an ambiguous send.
