@@ -320,12 +320,38 @@ class SmsGatewayService : Service() {
         }
 
         return enabledActive.firstOrNull {
-            detectOperator(it.carrierName?.toString().orEmpty()) == operatorCode
+            detectOperator(it) == operatorCode
         }?.subscriptionId
     }
 
-    private fun detectOperator(carrierName: String): String? {
-        val value = carrierName.lowercase()
+    /**
+     * Match the SIM by its network identity (Algerian MCC 603) before
+     * falling back to the carrier label. Android labels are not consistent
+     * across manufacturers, languages and SIM configurations.
+     */
+    private fun detectOperator(subscription: android.telephony.SubscriptionInfo): String? {
+        val mcc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            subscription.mccString
+        } else {
+            @Suppress("DEPRECATION")
+            subscription.mcc.toString()
+        }?.filter(Char::isDigit)
+        val mnc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            subscription.mncString
+        } else {
+            @Suppress("DEPRECATION")
+            subscription.mnc.toString()
+        }?.filter(Char::isDigit)
+
+        if (mcc == "603") {
+            when (mnc?.toIntOrNull()) {
+                1 -> return "mobilis"
+                2 -> return "djezzy"
+                3 -> return "ooredoo"
+            }
+        }
+
+        val value = subscription.carrierName?.toString().orEmpty().lowercase()
         return when {
             "djezzy" in value || "جازي" in value || "ota" in value -> "djezzy"
             "mobilis" in value || "موبيليس" in value || "atm" in value -> "mobilis"
