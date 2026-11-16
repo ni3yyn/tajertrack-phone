@@ -60,7 +60,29 @@ The debug APK is created at:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-GitHub Actions runs the Android APK build and lint checks. Debug artifacts are for testing, not public distribution. A merchant-facing release requires a stable signing key stored in GitHub Actions secrets; never commit that key. Use the same keystore for all future updates.
+GitHub Actions runs the Android APK build and lint checks. Debug artifacts are for testing, not public distribution.
+
+### Publish a merchant-facing release
+
+The signed release workflow runs when a `v*` tag is pushed, or manually from **GitHub → Actions → Signed Android release → Run workflow**. For a manual run, enter a version such as `0.2.0`. The workflow builds and verifies the signed release APK, generates a SHA-256 checksum, creates a GitHub Release, and attaches:
+
+- `tajertrack-phone.apk`
+- `SHA256SUMS.txt`
+
+The dashboard uses this stable download URL (unless `TAJERTRACK_PHONE_APK_URL` overrides it):
+
+`https://github.com/ni3yyn/tajertrack-phone/releases/latest/download/tajertrack-phone.apk`
+
+Before the first release, configure these repository Actions secrets under **Settings → Secrets and variables → Actions**:
+
+- `ANDROID_KEYSTORE_BASE64`: Base64-encoded release keystore file.
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+Generate and back up the keystore securely, then keep using that exact keystore for every update. Never commit the keystore or put its passwords in the repository. Losing the signing key prevents existing installations from receiving normal in-place updates; users would need to uninstall and reinstall, losing local app data.
+
+Do not publish the debug APK as the merchant download. It is signed with a different debug key and is intended only for testing.
 
 ## Platform behaviour
 
