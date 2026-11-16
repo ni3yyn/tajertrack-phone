@@ -323,7 +323,7 @@ class MainActivity : ComponentActivity() {
             if (alternateSimsEnabled) {
                 alternateSimsEnabled = false
                 preferences.alternateSimsEnabled = false
-                statusMessage = "لم تعد الشريحتان المحددتان متاحتين. عُطّل التناوب؛ اختر الشريحة الثانية من جديد."
+                statusMessage = "لم تعد الشريحتان المحددتان متاحتين. تم إيقاف الشريحة الثانية؛ اخترها من جديد عند الحاجة."
             }
         }
     }
