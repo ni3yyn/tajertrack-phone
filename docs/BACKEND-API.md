@@ -35,11 +35,11 @@ The migration creates `sms_tracking_outbox.recipient_operator`, centrally derive
 - `06xxxxxxxx` → `mobilis`
 - `05xxxxxxxx` → `ooredoo`
 
-The normalizer accepts local `0...`, `+213...`, `213...`, and `00213...` forms after removing presentation characters. Unknown or invalid numbers yield `NULL`; carrier-specific devices never claim those jobs.
+The normalizer accepts local `0...`, `+213...`, `213...`, and `00213...` forms after removing presentation characters. Unknown or invalid numbers yield `NULL` and are explicitly marked `skipped` with `unsupported_recipient_network`; they are never left pending indefinitely or sent through an arbitrary SIM.
 
 The database creates one outbox job per order under the existing unique constraint. `poll_native_sms_gateway` authenticates the exact line token and claims only rows belonging to the same merchant with the matching `recipient_operator`. A legacy `operator_code IS NULL` device retains all-network compatibility only until it is replaced by the first carrier-specific line.
 
-There is no automatic fallback to another operator. If the matching line is offline, paused, or unavailable, the job remains pending. One order still means one message. An unknown result is never automatically resent.
+There is no automatic fallback to another operator. If the matching line is offline, paused, or unavailable, the job remains pending. Unsupported/invalid numbers are skipped with an explicit result code. One order still means one message. An unknown result is never automatically resent.
 
 ## Claim and report semantics
 

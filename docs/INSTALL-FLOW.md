@@ -21,7 +21,7 @@ The invited phone owner does not sign in as the merchant, and the merchant must 
 - The primary SIM is eligible by default.
 - The secondary SIM is disabled by default. Enabling it adds it to the eligible SIM set; it does not cause alternation or additional messages.
 - The service matches the customer number's operator to the sender-line credential and the active SIM carrier.
-- If a matching SIM is missing or disabled, no other network is silently substituted. The job stays pending for the correct line.
+- If a matching SIM is missing or disabled, no other network is silently substituted. The job stays pending for the correct line. Invalid or unsupported customer numbers are marked skipped rather than routed to a different SIM.
 - A phone may hold more than one sender-line credential if it has multiple SIMs. A line on another physical phone keeps its own independent credential.
 
 ## Operational expectations
