@@ -82,10 +82,10 @@ class MainActivity : ComponentActivity() {
                 if (requiredPermissionsGranted()) {
                     simSetupUnlocked = true
                     preferences.smsSetupUnlocked = true
-                    statusMessage = if (simChoices.isEmpty()) {
-                        "تم السماح بالأذونات. أدخل شريحة اتصال فعّالة ثم حاول مجدداً."
-                    } else {
-                        "تم السماح بالأذونات. اختر الشريحة التي سيُرسل منها رابط التتبع."
+                    statusMessage = when {
+                        simChoices.isEmpty() -> "تم السماح بالأذونات. أدخل شريحة اتصال فعّالة ثم حاول مجدداً."
+                        simChoices.size == 1 -> "تم اختيار الشريحة الوحيدة تلقائياً. يمكنك الآن بدء إرسال روابط التتبع."
+                        else -> "تم السماح بالأذونات. افتح قائمة الشرائح وفعّل شريحة واحدة أو الشريحتين."
                     }
                 } else {
                     statusMessage = "يجب السماح بإرسال الرسائل والوصول إلى معلومات شرائح الاتصال والإشعارات لإكمال الإعداد."
@@ -277,10 +277,10 @@ class MainActivity : ComponentActivity() {
             refreshSimChoices()
             simSetupUnlocked = true
             preferences.smsSetupUnlocked = true
-            statusMessage = if (simChoices.isEmpty()) {
-                "تم السماح بالأذونات. أدخل شريحة اتصال فعّالة ثم حاول مجدداً."
-            } else {
-                "تم السماح بالأذونات. اختر الشريحة التي سيُرسل منها رابط التتبع."
+            statusMessage = when {
+                simChoices.isEmpty() -> "تم السماح بالأذونات. أدخل شريحة اتصال فعّالة ثم حاول مجدداً."
+                simChoices.size == 1 -> "تم اختيار الشريحة الوحيدة تلقائياً. يمكنك الآن بدء إرسال روابط التتبع."
+                else -> "تم السماح بالأذونات. افتح قائمة الشرائح وفعّل شريحة واحدة أو الشريحتين."
             }
         }
     }
