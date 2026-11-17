@@ -58,6 +58,12 @@ class MainActivity : ComponentActivity() {
     private var managerDevicesStatus by mutableStateOf("")
     private var isLoadingManagerDevices by mutableStateOf(false)
     private var updatingManagerDeviceId by mutableStateOf("")
+    private var managerSmsMessages by mutableStateOf(emptyList<com.tajertrack.phone.data.SmsMessageLogEntry>())
+    private var managerSmsMessagesStatus by mutableStateOf("")
+    private var isLoadingManagerSmsMessages by mutableStateOf(false)
+    private var hasMoreManagerSmsMessages by mutableStateOf(false)
+    private var managerSmsMessagesOffset by mutableStateOf(0)
+    private var managerSmsMessagesFilter by mutableStateOf("all")
     private var statusMessage by mutableStateOf("")
     private var simChoices by mutableStateOf(emptyList<SimChoice>())
     private var selectedSimId by mutableStateOf(-1)
@@ -123,6 +129,11 @@ class MainActivity : ComponentActivity() {
                     managerDevicesStatus = managerDevicesStatus,
                     loadingSenderDevices = isLoadingManagerDevices,
                     updatingManagerDeviceId = updatingManagerDeviceId,
+                    smsMessages = managerSmsMessages,
+                    smsMessagesStatus = managerSmsMessagesStatus,
+                    loadingSmsMessages = isLoadingManagerSmsMessages,
+                    hasMoreSmsMessages = hasMoreManagerSmsMessages,
+                    smsMessageFilter = managerSmsMessagesFilter,
                     statusMessage = statusMessage,
                     pairing = isPairing,
                     simSetupUnlocked = simSetupUnlocked,
@@ -150,7 +161,10 @@ class MainActivity : ComponentActivity() {
                     onCopyDownloadLink = ::copyDownloadLink,
                     onCopyInviteMessage = ::copyInviteMessage,
                     onRefreshManagerDevices = ::loadManagerDevices,
-                    onUpdateManagerDevice = ::updateManagerDevice
+                    onUpdateManagerDevice = ::updateManagerDevice,
+                    onRefreshManagerSmsMessages = { loadManagerSmsMessages(reset = true) },
+                    onLoadMoreManagerSmsMessages = { loadManagerSmsMessages(reset = false) },
+                    onFilterManagerSmsMessages = ::filterManagerSmsMessages
                 )
             }
         }
@@ -166,7 +180,10 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshConnectionState()
         refreshSimChoices()
-        if (tokenStore.hasManagerCredential()) loadManagerDevices()
+        if (tokenStore.hasManagerCredential()) {
+            loadManagerDevices()
+            loadManagerSmsMessages(reset = true)
+        }
         startRelayStatusSync()
     }
 
@@ -242,7 +259,15 @@ class MainActivity : ComponentActivity() {
         if (uri.scheme != "tajertrack-sms") return
         if (uri.host == "device-manager") {
             deviceManagerLaunchRequest += 1
-            if (tokenStore.hasManagerCredential()) loadManagerDevices()
+            if (tokenStore.hasManagerCredential()) {
+                loadManagerDevices()
+                loadManagerSmsMessages(reset = true)
+            }
+            return
+        }
+        if (uri.host == "message-log") {
+            deviceManagerLaunchRequest += 1
+            if (tokenStore.hasManagerCredential()) loadManagerSmsMessages(reset = true)
             return
         }
         if (uri.host !in setOf("pair", "manager-pair")) return
@@ -287,6 +312,7 @@ class MainActivity : ComponentActivity() {
                     isConnected = true
                     storeName = result.storeName
                     loadManagerDevices()
+                    loadManagerSmsMessages(reset = true)
                     statusMessage = "أصبح هذا الهاتف الرئيسي لمتجرك، ويمكنه إرسال الرسائل وإنشاء دعوات للهواتف الأخرى."
                 } else {
                     val result = ApiClient().completePairing(code, deviceName)
@@ -715,6 +741,62 @@ class MainActivity : ComponentActivity() {
                 managerDevicesStatus = ApiClient.describeFailure(error)
             } finally {
                 isLoadingManagerDevices = false
+            }
+        }
+    }
+
+    private fun filterManagerSmsMessages(filter: String) {
+        if (filter !in setOf("all", "pending", "submitted", "failed", "unknown")) return
+        if (isLoadingManagerSmsMessages || managerSmsMessagesFilter == filter) return
+
+        managerSmsMessagesFilter = filter
+        managerSmsMessages = emptyList()
+        managerSmsMessagesOffset = 0
+        hasMoreManagerSmsMessages = false
+        loadManagerSmsMessages(reset = true, statusFilter = filter)
+    }
+
+    private fun loadManagerSmsMessages(
+        reset: Boolean = true,
+        statusFilter: String = managerSmsMessagesFilter
+    ) {
+        val managerToken = tokenStore.managerToken()
+        if (managerToken.isNullOrBlank() || !tokenStore.hasManagerCredential()) {
+            managerSmsMessages = emptyList()
+            managerSmsMessagesStatus = "سجل الرسائل متاح من الهاتف الرئيسي فقط."
+            hasMoreManagerSmsMessages = false
+            managerSmsMessagesOffset = 0
+            return
+        }
+        if (isLoadingManagerSmsMessages) return
+        if (!reset && !hasMoreManagerSmsMessages) return
+
+        val requestedOffset = if (reset) 0 else managerSmsMessagesOffset
+        isLoadingManagerSmsMessages = true
+        if (reset) managerSmsMessagesStatus = "جارٍ تحميل سجل الرسائل..."
+        lifecycleScope.launch {
+            try {
+                val page = ApiClient().listManagerSmsMessages(
+                    managerToken = managerToken,
+                    offset = requestedOffset,
+                    statusFilter = statusFilter
+                )
+                managerSmsMessages = if (reset) {
+                    page.messages
+                } else {
+                    (managerSmsMessages + page.messages).distinctBy { it.id }
+                }
+                managerSmsMessagesOffset = page.nextOffset
+                hasMoreManagerSmsMessages = page.hasMore
+                managerSmsMessagesStatus = if (managerSmsMessages.isEmpty()) {
+                    "لا توجد رسائل ضمن هذا التصنيف."
+                } else {
+                    ""
+                }
+            } catch (error: Exception) {
+                managerSmsMessagesStatus = ApiClient.describeFailure(error)
+            } finally {
+                isLoadingManagerSmsMessages = false
             }
         }
     }
