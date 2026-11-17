@@ -2111,7 +2111,6 @@ private fun DeviceManagementPage(
 }
 
 @Composable
-private fun GuidePage()@Composable
 private fun GuidePage() {
     val questions = listOf(
         "ما وظيفة تاجر تراك فون؟" to
