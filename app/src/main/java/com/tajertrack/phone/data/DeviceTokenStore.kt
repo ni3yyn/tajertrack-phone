@@ -74,9 +74,21 @@ class DeviceTokenStore(context: Context) {
         val managerEncrypted = encrypt(managerToken)
         val senderEncrypted = encrypt(profile.token)
         val ids = preferences.getStringSet(KEY_PROFILE_IDS, emptySet()).orEmpty().toMutableSet()
+        val replacedIds = ids.filter {
+            preferences.getString(profileKey(it, "operator"), null) == profile.operatorCode
+        }
+        replacedIds.forEach(ids::remove)
         ids.add(profile.deviceId)
 
-        return preferences.edit()
+        val editor = preferences.edit()
+        replacedIds.forEach { id ->
+            editor.remove(profileKey(id, "iv"))
+                .remove(profileKey(id, "data"))
+                .remove(profileKey(id, "store"))
+                .remove(profileKey(id, "operator"))
+        }
+
+        return editor
             .putString(KEY_MANAGER_DEVICE_ID, managerDeviceId)
             .putString(KEY_MANAGER_TOKEN_IV, managerEncrypted.first)
             .putString(KEY_MANAGER_TOKEN_DATA, managerEncrypted.second)
