@@ -233,6 +233,7 @@ fun PhoneHomeScreen(
                                 PhoneDestination.Home -> HomePage(
                                     connected = connected,
                                     relayRunning = relayRunning,
+                                    relayConnectionState = relayConnectionState,
                                     storeName = storeName,
                                     statusMessage = statusMessage,
                                     onOpenConnection = { destination = PhoneDestination.Connection },
@@ -249,7 +250,6 @@ fun PhoneHomeScreen(
                                 PhoneDestination.Sending -> SendingPage(
                                     connected = connected,
                                     relayRunning = relayRunning,
-                                    relayConnectionState = relayConnectionState,
                                     storeName = storeName,
                                     statusMessage = statusMessage,
                                     simSetupUnlocked = simSetupUnlocked,
@@ -910,7 +910,6 @@ private fun ConnectionPage(
 private fun SendingPage(
     connected: Boolean,
     relayRunning: Boolean,
-    relayConnectionState: String,
     storeName: String,
     statusMessage: String,
     simSetupUnlocked: Boolean,
