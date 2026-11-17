@@ -103,7 +103,7 @@ class SmsSendResultReceiver : BroadcastReceiver() {
         val pdu = intent.getByteArrayExtra(EXTRA_PDU)
 
         val statusCode = runCatching {
-            if (pdu.isNullOrEmpty()) return@runCatching null
+            if (pdu == null || pdu.isEmpty()) return@runCatching null
             val format = intent.getStringExtra(EXTRA_FORMAT) ?: SmsMessage.FORMAT_3GPP
             val message = SmsMessage.createFromPdu(pdu, format) ?: return@runCatching null
             if (!message.isStatusReportMessage) return@runCatching null
