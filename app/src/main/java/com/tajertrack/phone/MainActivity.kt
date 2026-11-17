@@ -295,6 +295,7 @@ class MainActivity : ComponentActivity() {
                     }
                     isConnected = true
                     storeName = result.storeName
+                    if (tokenStore.hasManagerCredential()) loadManagerDevices()
                     statusMessage = "تم ربط الهاتف كجهاز إرسال فقط. لا يملك صلاحية إدارة الدعوات أو حساب المتجر."
                 }
             } catch (error: Exception) {
