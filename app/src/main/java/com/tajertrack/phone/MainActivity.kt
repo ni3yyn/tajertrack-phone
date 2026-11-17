@@ -54,6 +54,10 @@ class MainActivity : ComponentActivity() {
     private var isCreatingInvite by mutableStateOf(false)
     private var invitationUrl by mutableStateOf("")
     private var invitationStatus by mutableStateOf("")
+    private var managerSenderDevices by mutableStateOf(emptyList<com.tajertrack.phone.data.ManagerSenderDevice>())
+    private var managerDevicesStatus by mutableStateOf("")
+    private var isLoadingManagerDevices by mutableStateOf(false)
+    private var updatingManagerDeviceId by mutableStateOf("")
     private var statusMessage by mutableStateOf("")
     private var simChoices by mutableStateOf(emptyList<SimChoice>())
     private var selectedSimId by mutableStateOf(-1)
@@ -113,6 +117,10 @@ class MainActivity : ComponentActivity() {
                     invitationUrl = invitationUrl,
                     invitationStatus = invitationStatus,
                     creatingInvite = isCreatingInvite,
+                    senderDevices = managerSenderDevices,
+                    managerDevicesStatus = managerDevicesStatus,
+                    loadingSenderDevices = isLoadingManagerDevices,
+                    updatingManagerDeviceId = updatingManagerDeviceId,
                     statusMessage = statusMessage,
                     pairing = isPairing,
                     simSetupUnlocked = simSetupUnlocked,
@@ -138,7 +146,9 @@ class MainActivity : ComponentActivity() {
                     onShareInvite = ::shareInvite,
                     onCopyInvite = ::copyInvite,
                     onCopyDownloadLink = ::copyDownloadLink,
-                    onCopyInviteMessage = ::copyInviteMessage
+                    onCopyInviteMessage = ::copyInviteMessage,
+                    onRefreshManagerDevices = ::loadManagerDevices,
+                    onUpdateManagerDevice = ::updateManagerDevice
                 )
             }
         }
@@ -154,6 +164,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshConnectionState()
         refreshSimChoices()
+        if (tokenStore.hasManagerCredential()) loadManagerDevices()
         startRelayStatusSync()
     }
 
@@ -267,6 +278,7 @@ class MainActivity : ComponentActivity() {
                     isManager = true
                     isConnected = true
                     storeName = result.storeName
+                    loadManagerDevices()
                     statusMessage = "أصبح هذا الهاتف الرئيسي لمتجرك، ويمكنه إرسال الرسائل وإنشاء دعوات للهواتف الأخرى."
                 } else {
                     val result = ApiClient().completePairing(code, deviceName)
@@ -668,6 +680,59 @@ class MainActivity : ComponentActivity() {
                 invitationStatus = ApiClient.describeFailure(error)
             } finally {
                 isCreatingInvite = false
+            }
+        }
+    }
+
+    private fun loadManagerDevices() {
+        val managerToken = tokenStore.managerToken()
+        if (managerToken.isNullOrBlank()) {
+            managerSenderDevices = emptyList()
+            managerDevicesStatus = "هذا الهاتف ليس هاتفاً رئيسياً."
+            return
+        }
+        if (isLoadingManagerDevices) return
+
+        isLoadingManagerDevices = true
+        lifecycleScope.launch {
+            try {
+                managerSenderDevices = ApiClient().listManagerDevices(managerToken)
+                managerDevicesStatus = if (managerSenderDevices.isEmpty()) {
+                    "لم يتم ربط هواتف إرسال إضافية بعد."
+                } else {
+                    "تظهر هنا هواتف الإرسال المرتبطة بهذا المتجر."
+                }
+            } catch (error: Exception) {
+                managerDevicesStatus = ApiClient.describeFailure(error)
+            } finally {
+                isLoadingManagerDevices = false
+            }
+        }
+    }
+
+    private fun updateManagerDevice(deviceId: String, action: String) {
+        if (updatingManagerDeviceId.isNotBlank()) return
+        val managerToken = tokenStore.managerToken()
+        if (managerToken.isNullOrBlank()) {
+            managerDevicesStatus = "صلاحية إدارة الأجهزة غير متاحة. أعد ربط الهاتف الرئيسي."
+            return
+        }
+
+        updatingManagerDeviceId = deviceId
+        lifecycleScope.launch {
+            try {
+                ApiClient().updateManagerDevice(managerToken, deviceId, action)
+                managerDevicesStatus = when (action) {
+                    "pause" -> "تم إيقاف خط الإرسال."
+                    "resume" -> "تم استئناف خط الإرسال."
+                    "revoke" -> "تم إلغاء ربط الهاتف."
+                    else -> "تم تحديث الجهاز."
+                }
+                managerSenderDevices = ApiClient().listManagerDevices(managerToken)
+            } catch (error: Exception) {
+                managerDevicesStatus = ApiClient.describeFailure(error)
+            } finally {
+                updatingManagerDeviceId = ""
             }
         }
     }
