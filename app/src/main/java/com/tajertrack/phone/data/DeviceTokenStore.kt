@@ -59,6 +59,56 @@ class DeviceTokenStore(context: Context) {
             .commit()
     }
 
+    /** Saves the manager credential and its first sender profile in one preference commit. */
+    fun saveManagerPairing(
+        managerDeviceId: String,
+        managerToken: String,
+        profile: DeviceCredential
+    ): Boolean {
+        if (managerDeviceId.isBlank() || managerToken.isBlank() ||
+            profile.deviceId.isBlank() || profile.token.isBlank()
+        ) return false
+
+        val managerEncrypted = encrypt(managerToken)
+        val senderEncrypted = encrypt(profile.token)
+        val ids = preferences.getStringSet(KEY_PROFILE_IDS, emptySet()).orEmpty().toMutableSet()
+        ids.add(profile.deviceId)
+
+        return preferences.edit()
+            .putString(KEY_MANAGER_DEVICE_ID, managerDeviceId)
+            .putString(KEY_MANAGER_TOKEN_IV, managerEncrypted.first)
+            .putString(KEY_MANAGER_TOKEN_DATA, managerEncrypted.second)
+            .putString(KEY_MANAGER_STORE_NAME, profile.storeName.take(120))
+            .putString(profileKey(profile.deviceId, "iv"), senderEncrypted.first)
+            .putString(profileKey(profile.deviceId, "data"), senderEncrypted.second)
+            .putString(profileKey(profile.deviceId, "store"), profile.storeName.take(120))
+            .putString(profileKey(profile.deviceId, "operator"), profile.operatorCode)
+            .putStringSet(KEY_PROFILE_IDS, ids)
+            .putString(KEY_DEVICE_ID, profile.deviceId)
+            .putString(KEY_STORE_NAME, profile.storeName.take(120))
+            .commit()
+    }
+
+    fun managerToken(): String? {
+        val iv = preferences.getString(KEY_MANAGER_TOKEN_IV, null) ?: return null
+        val data = preferences.getString(KEY_MANAGER_TOKEN_DATA, null) ?: return null
+        return decrypt(iv, data)
+    }
+
+    fun managerDeviceId(): String =
+        preferences.getString(KEY_MANAGER_DEVICE_ID, "").orEmpty()
+
+    fun hasManagerCredential(): Boolean = !managerToken().isNullOrBlank()
+
+    fun clearManagerCredential() {
+        preferences.edit()
+            .remove(KEY_MANAGER_DEVICE_ID)
+            .remove(KEY_MANAGER_TOKEN_IV)
+            .remove(KEY_MANAGER_TOKEN_DATA)
+            .remove(KEY_MANAGER_STORE_NAME)
+            .commit()
+    }
+
     fun readProfiles(): List<DeviceCredential> {
         val profiles = mutableListOf<DeviceCredential>()
         val ids = preferences.getStringSet(KEY_PROFILE_IDS, emptySet()).orEmpty().toList().sorted()
@@ -139,6 +189,10 @@ class DeviceTokenStore(context: Context) {
             .remove(KEY_TOKEN_DATA)
             .remove(KEY_DEVICE_ID)
             .remove(KEY_STORE_NAME)
+            .remove(KEY_MANAGER_DEVICE_ID)
+            .remove(KEY_MANAGER_TOKEN_IV)
+            .remove(KEY_MANAGER_TOKEN_DATA)
+            .remove(KEY_MANAGER_STORE_NAME)
             .apply()
     }
 
@@ -201,6 +255,10 @@ class DeviceTokenStore(context: Context) {
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_STORE_NAME = "store_name"
         private const val KEY_PROFILE_IDS = "sender_line_profile_ids"
+        private const val KEY_MANAGER_DEVICE_ID = "manager_device_id"
+        private const val KEY_MANAGER_TOKEN_IV = "manager_token_iv"
+        private const val KEY_MANAGER_TOKEN_DATA = "manager_token_data"
+        private const val KEY_MANAGER_STORE_NAME = "manager_store_name"
         private val SUPPORTED_OPERATORS = setOf("djezzy", "mobilis", "ooredoo")
     }
 }
