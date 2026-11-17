@@ -56,6 +56,8 @@ class DeviceTokenStore(context: Context) {
             .putStringSet(KEY_PROFILE_IDS, ids)
             .putString(KEY_DEVICE_ID, profile.deviceId)
             .putString(KEY_STORE_NAME, profile.storeName.take(120))
+            .remove(KEY_TOKEN_IV)
+            .remove(KEY_TOKEN_DATA)
             .commit()
     }
 
