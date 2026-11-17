@@ -6,15 +6,15 @@ Native Android companion for sending the single tracking-link SMS created for ea
 
 ## Merchant and family-device setup
 
-1. Install TajerTrack Phone from the APK download in TajerTrack.
-2. Open the app on the phone that will send from a SIM, then keep it ready for the pairing link.
-3. In TajerTrack → Settings → SMS sender lines, choose Djezzy, Mobilis, or Ooredoo and create an invitation.
-4. Open/share that one-time invitation on the intended phone. It displays the store and carrier purpose; the invited person approves without signing in as the merchant or receiving the merchant's password.
-5. Allow SMS, SIM access, and notification permissions requested by Android.
-6. On a single-SIM phone, the only active SIM is selected automatically. On a dual-SIM phone, open the SIM selector and enable either one or both. Enabled SIM names remain visible when the selector is closed.
-7. Start the relay and keep the phone online.
+1. Install TajerTrack Phone on the first Android phone. Open it and choose **ربط المتجر**.
+2. The app opens TajerTrack in the browser. Sign in with the merchant account, choose the carrier of the SIM this phone will use, and approve the pairing. This establishes the **main merchant device**.
+3. Grant SMS, SIM access, and notification permissions. On a single-SIM phone, the only active SIM is selected automatically. On a dual-SIM phone, enable either one or both; enabled SIM names remain visible when the selector is closed.
+4. On the main phone, open **إدارة أجهزة الإرسال**, choose Djezzy, Mobilis, or Ooredoo, and create an invitation.
+5. Send the invitation from inside the app by SMS, share it through Telegram or another installed app, or copy the complete message. It includes the signed APK download link and the one-time invitation link.
+6. The invited person installs TajerTrack Phone, opens the invitation on the intended phone, checks the store and carrier, and approves. They do not sign in as the merchant and never receive the merchant's password.
+7. Start the relay on each phone that will send SMS and keep it online.
 
-The merchant can pair up to three sender lines, one per carrier. They can all be installed on one multi-SIM Android phone, or distributed across separate phones belonging to relatives. Each line receives its own credential and can be paused or revoked independently from TajerTrack Settings.
+The main phone has a separate manager credential and its own carrier-scoped SMS sender credential. Invited phones receive sender-only credentials and cannot create invitations or manage other phones. Up to three carrier lines can be active per merchant; each line can be on the main multi-SIM phone or on a separate phone. The main phone can refresh the sender inventory, pause/resume a line, or revoke it.
 
 ## Carrier routing and what gets sent
 
@@ -32,12 +32,17 @@ Carrier prefix allocation is centralized in `detect_algerian_mobile_operator` so
 
 ## Security and device management
 
-- A merchant-created invitation has at least 256 bits of random entropy, is stored only as a SHA-256 hash, expires after 30 minutes, and can be redeemed once.
-- Redemption creates a five-minute one-time pairing code. The phone receives a separate random device token, stored server-side only as a hash.
-- Android encrypts each line token using a non-exportable Android Keystore key.
+- The authenticated merchant account establishes one active manager device. Replacing it requires a fresh account login and explicit confirmation; the previous manager credential is revoked.
+- The manager device has a separate random credential used only for device management. It is never accepted by SMS sender endpoints.
+- The main phone also receives one carrier-scoped SMS sender credential, so manager authority does not bypass carrier routing.
+- Invited phones receive sender-only credentials. They cannot create invitations, inspect the merchant account, or manage other phones.
+- A device invitation has at least 256 bits of random entropy, is stored only as a SHA-256 hash, expires after 30 minutes, and can be redeemed once. Manager-created invitations become invalid if the manager device is revoked or the merchant account ownership changes.
+- Pairing codes are one-time and expire after five minutes. Each phone receives random credentials that are stored server-side only as SHA-256 hashes.
+- Android encrypts each manager and sender token using a non-exportable Android Keystore key.
 - A device never receives the merchant's password, browser cookie, Supabase access token, or service-role key.
-- The backend permits one active device for each merchant/carrier slot. Replacing one carrier line does not revoke the other two.
-- Merchants can pause, re-enable, or revoke each line independently. Revocation invalidates its token and converts an in-flight job to `unknown`.
+- The backend permits one active sender device for each merchant/carrier slot. Replacing one carrier line does not revoke the other two.
+- The main phone can inspect, pause, re-enable, or revoke sender lines. Revocation invalidates the token and converts an in-flight job to `unknown`.
+- Account recovery is performed by pairing a new main phone through an authenticated merchant session, not by using an invitation link.
 - Invite, pairing, device and queue operations are merchant-scoped. The legacy Termux gateway remains isolated from merchants that have moved to native sender lines.
 
 ## Build and distribution
