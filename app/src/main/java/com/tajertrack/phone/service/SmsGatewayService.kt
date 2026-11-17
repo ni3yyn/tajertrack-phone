@@ -43,6 +43,7 @@ class SmsGatewayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         createNotificationChannel()
     }
 
@@ -697,12 +698,16 @@ class SmsGatewayService : Service() {
         relayJob?.cancel()
         serviceScope.coroutineContext[Job]?.cancel()
         releaseCpuWakeLock()
+        isRunning = false
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+        @Volatile
+        var isRunning: Boolean = false
+            private set
         const val ACTION_STOP = "com.tajertrack.phone.action.STOP_RELAY"
         private const val TAG = "TajerTrackSmsRelay"
         private const val CHANNEL_ID = "tajertrack_sms_relay"
