@@ -102,7 +102,6 @@ private enum class PhoneDestination {
 fun PhoneHomeScreen(
     connected: Boolean,
     relayRunning: Boolean,
-    relayConnectionState: String,
     storeName: String,
     statusMessage: String,
     pairing: Boolean,
@@ -234,7 +233,6 @@ fun PhoneHomeScreen(
                                 PhoneDestination.Home -> HomePage(
                                     connected = connected,
                                     relayRunning = relayRunning,
-                                    relayConnectionState = relayConnectionState,
                                     storeName = storeName,
                                     statusMessage = statusMessage,
                                     onOpenConnection = { destination = PhoneDestination.Connection },
@@ -551,20 +549,6 @@ private fun relayConnectionLabel(state: String, relayRunning: Boolean): String =
     "attention" -> "يحتاج مراجعة"
     "stopped" -> "متوقف"
     else -> if (relayRunning) "جارٍ الاتصال" else "متوقف"
-}
-
-private fun relayConnectionDescription(state: String): String = when (state) {
-    "connected" -> "الهاتف متصل بخادم تاجر تراك وينتظر الطلبات الجديدة."
-    "sending" -> "جارٍ إرسال رابط التتبع عبر الشريحة المختارة."
-    "reporting" -> "يحفظ الهاتف نتيجة الرسالة لدى تاجر تراك قبل استقبال طلب جديد."
-    "retrying" -> "تعذر الاتصال بالخادم. سيعيد التطبيق المحاولة تلقائياً، ولن يعيد إرسال رسالة نتيجتها معلّقة."
-    "offline" -> "لا يوجد اتصال إنترنت صالح على الهاتف. تحقق من Wi-Fi أو بيانات الهاتف."
-    "paused" -> "الخادم متاح، لكن الإرسال متوقف مؤقتاً من لوحة التحكم أو إعدادات المتجر."
-    "needs_repair", "needs_pairing" -> "انتهى ربط الهاتف. أعد ربطه من داخل التطبيق."
-    "needs_user_start" -> "خدمة الإرسال غير نشطة رغم حفظ الإعداد. افتح التطبيق واضغط تشغيل؛ قد يمنع Android التشغيل التلقائي بعد إعادة التشغيل أو الإيقاف القسري."
-    "disabled" -> "تم إيقاف هذا الهاتف من لوحة تاجر تراك."
-    "attention" -> "توجد نتيجة رسالة تحتاج إلى مراجعة في سجل الرسائل قبل إعادة إرسالها يدوياً."
-    else -> "جارٍ إنشاء اتصال بخادم تاجر تراك..."
 }
 
 @Composable
