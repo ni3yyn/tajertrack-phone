@@ -112,6 +112,7 @@ class ApiClient {
                     add(
                         ManagerSenderDevice(
                             deviceId = deviceId,
+                            isPrimary = item.optBoolean("isPrimary"),
                             displayName = item.optString("displayName").ifBlank { "Android phone" },
                             operatorCode = item.optString("operatorCode").takeIf { it in setOf("djezzy", "mobilis", "ooredoo") },
                             enabled = item.optBoolean("enabled"),
@@ -346,6 +347,7 @@ data class ManagerInviteResult(
 
 data class ManagerSenderDevice(
     val deviceId: String,
+    val isPrimary: Boolean,
     val displayName: String,
     val operatorCode: String?,
     val enabled: Boolean,
