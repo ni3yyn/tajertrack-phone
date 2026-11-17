@@ -78,14 +78,13 @@ class SmsGatewayService : Service() {
         val preferences = AppPreferences(this)
         var profiles = tokenStore.readProfiles()
         if (profiles.isEmpty()) {
-            publishStatus(preferences, "needs_pairing", "اربط هذا الهاتف بخط إرسال واحد على الأقل من إعدادات متجرك.")
+            publishStatus(preferences, "needs_pairing", "اربط متجرك بخط إرسال واحد على الأقل من إعدادات تاجر تراك.")
             stopRelay()
             return
         }
 
         var idleDelayMs = IDLE_DELAY_MIN_MS
         var consecutiveFailures = preferences.consecutiveRelayFailures
-        var inMemoryPendingReport: PendingSmsReport? = null
         val api = ApiClient()
         publishStatus(preferences, "connecting", "جارٍ الاتصال بخادم تاجر تراك...")
 
@@ -98,49 +97,48 @@ class SmsGatewayService : Service() {
                     return
                 }
 
-                // Persisted results are reported with the exact line credential
-                // that claimed the job. Never claim another job before this report.
-                val pendingReport = inMemoryPendingReport ?: preferences.pendingSmsReport()
+                // Recover the one durable in-flight record before claiming anything
+                // else. "claimed" proves SmsManager was not called; "invoking" is
+                // ambiguous and must never be automatically resent.
+                val pendingReport = preferences.pendingSmsReport()
                 if (pendingReport != null) {
                     val reportProfile = profiles.firstOrNull { it.deviceId == pendingReport.deviceId }
                     if (reportProfile == null) {
                         preferences.clearPendingSmsReport(pendingReport.jobId)
-                        inMemoryPendingReport = null
                         publishStatus(
                             preferences,
                             "attention",
-                            "تعذر تسجيل نتيجة رسالة من خط ربط سابق. راجع سجل الرسائل قبل أي إعادة يدوية؛ لن يعيد الهاتف إرسالها تلقائياً."
+                            "تعذر إرسال نتيجة رسالة من خط ربط سابق. تحقق من سجل الرسائل في لوحة تاجر تراك قبل أي إعادة يدوية."
                         )
                     } else {
-                        try {
-                            publishStatus(preferences, "reporting", "جارٍ تأكيد نتيجة الرسالة السابقة مع تاجر تراك...")
-                            api.report(reportProfile.token, pendingReport.jobId, pendingReport.status, pendingReport.error)
-                            preferences.clearPendingSmsReport(pendingReport.jobId)
-                            inMemoryPendingReport = null
-                            markServerSuccess(preferences)
-                            publishReportedSmsStatus(preferences, pendingReport)
-                        } catch (error: GatewayHttpException) {
-                            if (error.statusCode == 401 || error.statusCode == 403) {
-                                tokenStore.removeProfile(reportProfile.deviceId)
-                                preferences.clearPendingSmsReport(pendingReport.jobId)
-                                inMemoryPendingReport = null
-                                publishStatus(
-                                    preferences,
-                                    "attention",
-                                    "تم إلغاء صلاحية خط إرسال سابق. لم تتم إعادة الرسالة تلقائياً لتجنب التكرار."
-                                )
-                            } else if (error.statusCode in setOf(400, 404, 409, 422)) {
-                                preferences.clearPendingSmsReport(pendingReport.jobId)
-                                inMemoryPendingReport = null
-                                publishStatus(
-                                    preferences,
-                                    "attention",
-                                    "تغيّرت حالة الرسالة على الخادم ولم تعد النتيجة قابلة للتسجيل. راجع سجل الرسائل قبل أي إعادة يدوية؛ لن يعيد الهاتف إرسالها تلقائياً."
-                                )
-                            } else {
-                                throw error
-                            }
+                        val recovered = when (pendingReport.stage) {
+                            AppPreferences.STAGE_CLAIMED -> pendingReport.copy(
+                                status = "not_sent",
+                                error = "استعاد التطبيق الطلب قبل استدعاء Android SmsManager."
+                            )
+                            AppPreferences.STAGE_INVOKING -> pendingReport.copy(
+                                status = "unknown",
+                                error = "أُعيد تشغيل التطبيق أثناء محاولة إرسال SMS. قد تكون الرسالة أُرسلت؛ لن تُكرر تلقائياً."
+                            )
+                            else -> pendingReport
                         }
+
+                        publishStatus(preferences, "reporting", "جارٍ حفظ نتيجة الرسالة السابقة لدى تاجر تراك...")
+                        api.report(
+                            token = reportProfile.token,
+                            jobId = recovered.jobId,
+                            claimToken = recovered.claimToken,
+                            status = recovered.status,
+                            error = recovered.error,
+                            retryable = recovered.retryable,
+                            failureCode = recovered.failureCode
+                        )
+                        preferences.clearPendingSmsReport(recovered.jobId)
+                        markServerSuccess(preferences)
+                        publishReportedSmsStatus(preferences, recovered)
+                        // One job at a time: never claim a second order until the
+                        // first order's result is durably acknowledged by the API.
+                        continue
                     }
                 }
 
@@ -155,7 +153,19 @@ class SmsGatewayService : Service() {
                     publishStatus(
                         preferences,
                         "attention",
-                        "إذن الوصول إلى شرائح الاتصال غير متاح. اسمح به من إعدادات Android حتى يطابق التطبيق شبكة العميل بالشريحة الصحيحة."
+                        "إذن الوصول إلى شرائح الاتصال غير متاح. اسمح به من إعدادات Android؛ لن تُحجز طلبات جديدة حتى يعود الإذن."
+                    )
+                    delay(PAUSED_DELAY_MS)
+                    continue
+                }
+
+                // Permission loss must pause BEFORE a server claim. It must not
+                // consume attempts or turn a perfectly valid order into a failure.
+                if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+                    publishStatus(
+                        preferences,
+                        "attention",
+                        "إذن إرسال SMS غير متاح. فعّله من إعدادات Android؛ ستبقى الطلبات في قائمة الانتظار دون استهلاك محاولات."
                     )
                     delay(PAUSED_DELAY_MS)
                     continue
@@ -171,6 +181,8 @@ class SmsGatewayService : Service() {
                 var hasEligibleLine = false
                 var disabledLineSeen = false
                 var servicePaused = false
+                var operatorNeedsSetup = false
+                var operatorConflict = false
                 var claimedAndSent = false
 
                 for (profile in profiles) {
@@ -182,8 +194,19 @@ class SmsGatewayService : Service() {
                     ) ?: continue
 
                     hasEligibleLine = true
+                    val selectedSubscription = activeSubscriptions.firstOrNull {
+                        it.subscriptionId == subscriptionId
+                    }
+                    val effectiveOperatorCode = profile.operatorCode
+                        ?: selectedSubscription?.let(::detectOperator)
+
+                    if (effectiveOperatorCode == null) {
+                        operatorNeedsSetup = true
+                        continue
+                    }
+
                     val claim = try {
-                        api.claim(profile.token)
+                        api.claim(profile.token, effectiveOperatorCode)
                     } catch (error: GatewayHttpException) {
                         if (error.statusCode == 401 || error.statusCode == 403) {
                             tokenStore.removeProfile(profile.deviceId)
@@ -195,6 +218,7 @@ class SmsGatewayService : Service() {
 
                     markServerSuccess(preferences)
                     consecutiveFailures = 0
+                    preferences.consecutiveRelayFailures = 0
                     idleDelayMs = IDLE_DELAY_MIN_MS
 
                     if (claim.deviceDisabled) {
@@ -205,36 +229,114 @@ class SmsGatewayService : Service() {
                         servicePaused = true
                         break
                     }
+                    if (claim.operatorConflict || claim.operatorUnassigned) {
+                        operatorConflict = true
+                        continue
+                    }
 
                     val job = claim.job ?: continue
+
+                    // Recheck the exact SIM and permissions immediately before
+                    // dispatch. A changed SIM/permission returns the claim safely
+                    // without ever calling SmsManager.
+                    val stillHasPermission =
+                        checkSelfPermission(Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED &&
+                        checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+                    val simStillPresent = runCatching {
+                        getSystemService(SubscriptionManager::class.java)
+                            .activeSubscriptionInfoList.orEmpty()
+                            .any { it.subscriptionId == subscriptionId }
+                    }.getOrDefault(false)
+
+                    if (!stillHasPermission || !simStillPresent) {
+                        val saved = preferences.savePendingSmsClaim(job.id, profile.deviceId, job.claimToken)
+                        if (saved) {
+                            publishStatus(
+                                preferences,
+                                "attention",
+                                "تغيّر إذن SMS أو حالة الشريحة قبل الإرسال. لم يستدعِ التطبيق Android؛ سيعيد الطلب إلى قائمة الانتظار."
+                            )
+                        } else {
+                            Log.e(TAG, "Could not persist pre-dispatch claim; leaving server lease to recover safely.")
+                            publishStatus(preferences, "attention", "تعذر حفظ سجل الاستعادة محلياً. لم تُرسل الرسالة، وسيستعيد الخادم الحجز بعد انتهاء مهلة الأمان.")
+                        }
+                        claimedAndSent = true
+                        break
+                    }
+
+                    // Save the claim synchronously before any operation that can
+                    // send SMS. A crash in this stage is safely recoverable.
+                    if (!preferences.savePendingSmsClaim(job.id, profile.deviceId, job.claimToken)) {
+                        Log.e(TAG, "Could not persist SMS claim; refusing to call SmsManager.")
+                        publishStatus(
+                            preferences,
+                            "attention",
+                            "تعذر حفظ سجل إرسال الطلب على الهاتف. لم تُرسل الرسالة؛ سيعيد الخادم الطلب تلقائياً بعد انتهاء الحجز."
+                        )
+                        claimedAndSent = true
+                        break
+                    }
+
+                    try {
+                        api.beginDispatch(profile.token, job.id, job.claimToken)
+                    } catch (error: Exception) {
+                        // The request may have reached the server, but the local
+                        // stage is still "claimed" and SmsManager was not called.
+                        // The next loop reports not_sent idempotently.
+                        publishStatus(
+                            preferences,
+                            "retrying",
+                            "تعذر تأكيد بدء الإرسال مع الخادم. لم يستدعِ التطبيق Android؛ جارٍ استعادة الطلب بأمان."
+                        )
+                        throw error
+                    }
+
+                    if (!preferences.markPendingSmsInvoking(job.id)) {
+                        // Never send without a durable marker. The journal remains
+                        // in "claimed", so recovery can safely requeue the job.
+                        publishStatus(preferences, "attention", "تعذر حفظ حالة الإرسال على الهاتف. لم تُرسل الرسالة وسيُعاد الطلب إلى الانتظار.")
+                        claimedAndSent = true
+                        break
+                    }
+
                     publishStatus(
                         preferences,
                         "sending",
                         "وصل طلب جديد. جارٍ إرسال رابط التتبع من شريحة الشبكة المطابقة..."
                     )
+
                     val result = sendSms(job, subscriptionId)
                     val pending = PendingSmsReport(
                         jobId = job.id,
                         deviceId = profile.deviceId,
                         status = result.status,
-                        error = result.error
+                        error = result.error,
+                        claimToken = job.claimToken,
+                        stage = AppPreferences.STAGE_RESULT,
+                        retryable = result.retryable,
+                        failureCode = result.failureCode
                     )
-                    if (!preferences.savePendingSmsReport(pending)) {
-                        inMemoryPendingReport = pending
-                        Log.e(TAG, "Could not persist the pending SMS report; retaining it in memory.")
+                    if (!preferences.savePendingSmsOutcome(pending)) {
+                        Log.e(TAG, "Could not persist the SMS outcome; keeping it in memory for immediate reporting.")
+                        publishStatus(
+                            preferences,
+                            "attention",
+                            "وصلت نتيجة Android لكن تعذر حفظها محلياً. سيحاول التطبيق تسجيلها فوراً، ولن يعيد إرسال الطلب."
+                        )
                     }
                     claimedAndSent = true
                     break
                 }
 
                 if (claimedAndSent) {
+                    // Immediately return to the top to report the durable journal.
                     continue
                 }
                 if (servicePaused) {
                     publishStatus(
                         preferences,
                         "paused",
-                        "الخادم متاح، لكن خدمة SMS متوقفة مؤقتاً من لوحة تاجر تراك أو إعدادات المتجر."
+                        "خدمة SMS متوقفة مؤقتاً من لوحة الإدارة أو إعدادات المتجر. الطلبات المؤهلة تبقى في قائمة الانتظار."
                     )
                     delay(PAUSED_DELAY_MS)
                     continue
@@ -247,15 +349,25 @@ class SmsGatewayService : Service() {
                 }
 
                 when {
+                    operatorConflict -> publishStatus(
+                        preferences,
+                        "attention",
+                        "تعذر تصنيف خط الإرسال: يوجد خط آخر للشبكة نفسها أو أن هذا الهاتف مرتبط بشبكة مختلفة. لم تُرسل أي رسالة."
+                    )
+                    operatorNeedsSetup -> publishStatus(
+                        preferences,
+                        "attention",
+                        "تعذر التعرف على شبكة الشريحة الأساسية. تحقق من أن الشريحة جزائرية واخترها من إعدادات الإرسال."
+                    )
                     !hasEligibleLine -> publishStatus(
                         preferences,
                         "attention",
-                        "لم يتم العثور على شريحة مفعّلة تطابق شبكة أي خط مرتبط. تحقق من اسم الشبكة، واختر الشريحة الأساسية أو فعّل الشريحة الثانية."
+                        "لا توجد شريحة مفعّلة تطابق أي خط مرتبط. أدخل الشريحة الصحيحة أو فعّل الشريحة الثانية."
                     )
                     disabledLineSeen -> publishStatus(
                         preferences,
                         "disabled",
-                        "بعض خطوط الإرسال موقوفة من لوحة تاجر تراك. يمكن للخطوط الأخرى المطابقة أن تواصل العمل."
+                        "بعض خطوط الإرسال موقوفة من لوحة تاجر تراك. ستبقى طلباتها في الانتظار حتى تفعيل الخط."
                     )
                     else -> publishStatus(
                         preferences,
