@@ -9,6 +9,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.net.URLEncoder
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -129,14 +130,18 @@ class ApiClient {
     suspend fun listManagerSmsMessages(
         managerToken: String,
         offset: Int,
-        statusFilter: String
+        statusFilter: String,
+        searchQuery: String = "",
+        deviceId: String = ""
     ): SmsMessageLogPage = withContext(Dispatchers.IO) {
         val safeOffset = offset.coerceIn(0, 100_000)
         val safeFilter = statusFilter.takeIf {
             it in setOf("all", "pending", "submitted", "failed", "unknown")
         } ?: "all"
+        val encodedSearch = URLEncoder.encode(searchQuery.trim().take(80), "UTF-8")
+        val encodedDeviceId = URLEncoder.encode(deviceId.take(100), "UTF-8")
         val response = get(
-            "/api/mobile/sms-gateway/manager/messages?offset=$safeOffset&status=$safeFilter",
+            "/api/mobile/sms-gateway/manager/messages?offset=$safeOffset&status=$safeFilter&q=$encodedSearch&deviceId=$encodedDeviceId",
             managerToken
         )
         val items = response.optJSONArray("messages") ?: return@withContext SmsMessageLogPage(
