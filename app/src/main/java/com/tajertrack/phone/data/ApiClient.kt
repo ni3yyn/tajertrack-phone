@@ -51,6 +51,55 @@ class ApiClient {
         )
     }
 
+    suspend fun completeManagerPairing(code: String, deviceName: String): ManagerPairingResult = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put("code", code)
+            .put("deviceName", deviceName)
+            .put("platform", "android")
+            .put("appVersion", BuildConfig.VERSION_NAME)
+        val response = post("/api/mobile/sms-gateway/manager/pair/complete", body, token = null)
+        val managerToken = response.optString("managerToken")
+        val managerDeviceId = response.optString("managerDeviceId")
+        val deviceToken = response.optString("deviceToken")
+        val deviceId = response.optString("senderDeviceId")
+        val operatorCode = response.optString("operatorCode")
+        if (managerToken.isBlank() || managerDeviceId.isBlank() ||
+            deviceToken.isBlank() || deviceId.isBlank() ||
+            operatorCode !in setOf("djezzy", "mobilis", "ooredoo")
+        ) {
+            throw GatewayProtocolException("The manager pairing response did not include both device credentials.")
+        }
+        ManagerPairingResult(
+            managerToken = managerToken,
+            managerDeviceId = managerDeviceId,
+            senderToken = deviceToken,
+            senderDeviceId = deviceId,
+            storeName = response.optString("storeName").ifBlank { "متجرك" },
+            operatorCode = operatorCode
+        )
+    }
+
+    suspend fun createManagerInvite(managerToken: String, operatorCode: String): ManagerInviteResult =
+        withContext(Dispatchers.IO) {
+            if (operatorCode !in setOf("djezzy", "mobilis", "ooredoo")) {
+                throw GatewayProtocolException("Invalid sender network.")
+            }
+            val response = post(
+                "/api/mobile/sms-gateway/manager/invites",
+                JSONObject().put("operatorCode", operatorCode),
+                managerToken
+            )
+            val inviteUrl = response.optString("inviteUrl")
+            if (inviteUrl.isBlank() || !inviteUrl.startsWith("https://")) {
+                throw GatewayProtocolException("TajerTrack did not return a valid invitation link.")
+            }
+            ManagerInviteResult(
+                inviteUrl = inviteUrl,
+                expiresInSeconds = response.optLong("expiresInSeconds", 1800L),
+                operatorCode = response.optString("operatorCode")
+            )
+        }
+
     suspend fun claim(token: String, operatorCode: String?): ClaimResult = withContext(Dispatchers.IO) {
         val payload = JSONObject()
             .put("appVersion", BuildConfig.VERSION_NAME)
@@ -209,6 +258,22 @@ data class PairingResult(
     val storeName: String,
     val operatorCode: String?
 )
+
+data class ManagerPairingResult(
+    val managerToken: String,
+    val managerDeviceId: String,
+    val senderToken: String,
+    val senderDeviceId: String,
+    val storeName: String,
+    val operatorCode: String
+)
+
+data class ManagerInviteResult(
+    val inviteUrl: String,
+    val expiresInSeconds: Long,
+    val operatorCode: String
+)
+
 
 data class SmsJob(
     val id: String,
