@@ -51,25 +51,49 @@ class ApiClient {
         )
     }
 
-    suspend fun claim(token: String): ClaimResult = withContext(Dispatchers.IO) {
+    suspend fun claim(token: String, operatorCode: String?): ClaimResult = withContext(Dispatchers.IO) {
+        val payload = JSONObject()
+            .put("appVersion", BuildConfig.VERSION_NAME)
+            .put("dispatchProtocol", 1)
+        if (!operatorCode.isNullOrBlank()) payload.put("operatorCode", operatorCode)
+
         val response = post(
             "/api/mobile/sms-gateway/device/claim",
-            JSONObject().put("appVersion", BuildConfig.VERSION_NAME),
+            payload,
             token
         )
         val job = response.optJSONObject("job")
         ClaimResult(
             job = job?.let {
+                val claimToken = it.optString("claimToken")
+                    .takeIf(String::isNotBlank)
+                    ?: throw GatewayProtocolException("The SMS claim did not include its recovery token.")
                 SmsJob(
                     id = it.optString("id"),
+                    claimToken = claimToken,
                     phone = it.optString("phone"),
                     message = it.optString("message")
                 )
             },
             deviceDisabled = response.optBoolean("deviceDisabled"),
             gatewayPaused = response.optBoolean("gatewayPaused"),
-            merchantDisabled = response.optBoolean("merchantDisabled")
+            merchantDisabled = response.optBoolean("merchantDisabled"),
+            operatorConflict = response.optBoolean("operatorConflict"),
+            operatorUnassigned = response.optBoolean("operatorUnassigned")
         )
+    }
+
+    suspend fun beginDispatch(token: String, jobId: String, claimToken: String) = withContext(Dispatchers.IO) {
+        val response = post(
+            "/api/mobile/sms-gateway/device/dispatch",
+            JSONObject()
+                .put("jobId", jobId)
+                .put("claimToken", claimToken),
+            token
+        )
+        if (!response.optBoolean("success")) {
+            throw GatewayProtocolException("TajerTrack did not authorize SMS dispatch.")
+        }
     }
 
     suspend fun testSmsTarget(token: String): SmsTestTarget = withContext(Dispatchers.IO) {
@@ -86,11 +110,22 @@ class ApiClient {
         SmsTestTarget(phone = phone, message = message)
     }
 
-    suspend fun report(token: String, jobId: String, status: String, error: String? = null) = withContext(Dispatchers.IO) {
+    suspend fun report(
+        token: String,
+        jobId: String,
+        claimToken: String?,
+        status: String,
+        error: String? = null,
+        retryable: Boolean = false,
+        failureCode: String? = null
+    ) = withContext(Dispatchers.IO) {
         val body = JSONObject()
             .put("jobId", jobId)
             .put("status", status)
+            .put("retryable", retryable)
+        if (!claimToken.isNullOrBlank()) body.put("claimToken", claimToken)
         if (!error.isNullOrBlank()) body.put("error", error.take(500))
+        if (!failureCode.isNullOrBlank()) body.put("failureCode", failureCode.take(80))
 
         val response = post("/api/mobile/sms-gateway/device/report", body, token)
         if (!response.optBoolean("success")) {
@@ -162,8 +197,8 @@ class ApiClient {
             if (error is GatewayHttpException && error.retryAfterMs != null) {
                 return error.retryAfterMs
             }
-            val exponent = (failureCount - 1).coerceIn(0, 4)
-            return (5_000L * (1L shl exponent)).coerceAtMost(60_000L)
+            val exponent = (failureCount - 1).coerceIn(0, 5)
+            return (10_000L * (1L shl exponent)).coerceAtMost(300_000L)
         }
     }
 }
@@ -177,6 +212,7 @@ data class PairingResult(
 
 data class SmsJob(
     val id: String,
+    val claimToken: String,
     val phone: String,
     val message: String
 )
@@ -190,7 +226,9 @@ data class ClaimResult(
     val job: SmsJob?,
     val deviceDisabled: Boolean,
     val gatewayPaused: Boolean,
-    val merchantDisabled: Boolean
+    val merchantDisabled: Boolean,
+    val operatorConflict: Boolean,
+    val operatorUnassigned: Boolean
 )
 
 class GatewayHttpException(
