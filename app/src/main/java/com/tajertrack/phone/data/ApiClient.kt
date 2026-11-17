@@ -286,7 +286,8 @@ class ApiClient {
             val causes = generateSequence(error) { it.cause }.take(8).toList()
 
             if (error is GatewayHttpException) {
-                val serverMessage = error.message
+                val rawServerMessage = error.message.orEmpty()
+                val serverMessage = rawServerMessage
                     .takeIf { it.isNotBlank() && !it.startsWith("TajerTrack returned HTTP ") }
                 if (serverMessage != null) return serverMessage
 
