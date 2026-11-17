@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Sms
 import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -64,6 +65,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
@@ -86,6 +88,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tajertrack.phone.SimChoice
+import com.tajertrack.phone.data.ManagerSenderDevice
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -109,6 +112,10 @@ fun PhoneHomeScreen(
     invitationUrl: String,
     invitationStatus: String,
     creatingInvite: Boolean,
+    senderDevices: List<ManagerSenderDevice>,
+    managerDevicesStatus: String,
+    loadingSenderDevices: Boolean,
+    updatingManagerDeviceId: String,
     statusMessage: String,
     pairing: Boolean,
     simSetupUnlocked: Boolean,
@@ -134,7 +141,9 @@ fun PhoneHomeScreen(
     onShareInvite: () -> Unit,
     onCopyInvite: () -> Unit,
     onCopyDownloadLink: () -> Unit,
-    onCopyInviteMessage: () -> Unit
+    onCopyInviteMessage: () -> Unit,
+    onRefreshManagerDevices: () -> Unit,
+    onUpdateManagerDevice: (String, String) -> Unit
 ) {
     CompositionDirectionRtl {
         val drawerState = androidx.compose.material3.rememberDrawerState(
@@ -264,6 +273,12 @@ fun PhoneHomeScreen(
                                     invitationUrl = invitationUrl,
                                     invitationStatus = invitationStatus,
                                     creatingInvite = creatingInvite,
+                                    senderDevices = senderDevices,
+                                    managerDevicesStatus = managerDevicesStatus,
+                                    loadingSenderDevices = loadingSenderDevices,
+                                    updatingManagerDeviceId = updatingManagerDeviceId,
+                                    onRefreshManagerDevices = onRefreshManagerDevices,
+                                    onUpdateManagerDevice = onUpdateManagerDevice,
                                     onCreateInvite = onCreateInvite,
                                     onSendInviteBySms = onSendInviteBySms,
                                     onShareInvite = onShareInvite,
@@ -1457,6 +1472,12 @@ private fun DeviceManagementPage(
     invitationUrl: String,
     invitationStatus: String,
     creatingInvite: Boolean,
+    senderDevices: List<ManagerSenderDevice>,
+    managerDevicesStatus: String,
+    loadingSenderDevices: Boolean,
+    updatingManagerDeviceId: String,
+    onRefreshManagerDevices: () -> Unit,
+    onUpdateManagerDevice: (String, String) -> Unit,
     onCreateInvite: (String) -> Unit,
     onSendInviteBySms: () -> Unit,
     onShareInvite: () -> Unit,
@@ -1465,6 +1486,7 @@ private fun DeviceManagementPage(
     onCopyInviteMessage: () -> Unit
 ) {
     var selectedOperator by remember { mutableStateOf("mobilis") }
+    var pendingRevokeDevice by remember { mutableStateOf<ManagerSenderDevice?>(null) }
     val operators = listOf(
         "djezzy" to "Djezzy",
         "mobilis" to "Mobilis",
@@ -1506,7 +1528,128 @@ private fun DeviceManagementPage(
                 )
             }
         }
+
         Spacer(Modifier.height(24.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SectionHeading("الهواتف المرتبطة", "حالة خطوط الإرسال لهذا المتجر")
+            TextButton(
+                onClick = onRefreshManagerDevices,
+                enabled = !loadingSenderDevices
+            ) {
+                Text(if (loadingSenderDevices) "جارٍ التحديث..." else "تحديث", color = TajerForest, fontSize = 11.sp)
+            }
+        }
+        if (managerDevicesStatus.isNotBlank()) {
+            Text(managerDevicesStatus, color = TajerMuted, fontSize = 10.sp, lineHeight = 17.sp)
+        }
+        if (loadingSenderDevices && senderDevices.isEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = TajerForest,
+                trackColor = TajerSage
+            )
+        }
+        if (senderDevices.isEmpty() && !loadingSenderDevices) {
+            Spacer(Modifier.height(8.dp))
+            Text("لا توجد خطوط إرسال ظاهرة حالياً.", color = TajerMuted, fontSize = 11.sp)
+        }
+        senderDevices.forEach { device ->
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = TajerSurface,
+                border = BorderStroke(1.dp, TajerBorder),
+                shape = RectangleShape
+            ) {
+                Column(Modifier.padding(13.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                device.displayName,
+                                color = TajerInk,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                when (device.operatorCode) {
+                                    "djezzy" -> "Djezzy"
+                                    "mobilis" -> "Mobilis"
+                                    "ooredoo" -> "Ooredoo"
+                                    else -> "شبكة غير محددة"
+                                } + if (device.isPrimary) " · خط الهاتف الرئيسي" else " · هاتف مدعو",
+                                color = TajerMuted,
+                                fontSize = 10.sp
+                            )
+                        }
+                        Text(
+                            when {
+                                device.revoked -> "ملغى"
+                                !device.enabled -> "موقوف"
+                                device.isOnline -> "متصل الآن"
+                                else -> "غير متصل"
+                            },
+                            color = when {
+                                device.revoked -> TajerMuted
+                                !device.enabled -> Color(0xFF9B563F)
+                                device.isOnline -> TajerForest
+                                else -> TajerMuted
+                            },
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    if (!device.revoked) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    onUpdateManagerDevice(device.deviceId, if (device.enabled) "pause" else "resume")
+                                },
+                                enabled = updatingManagerDeviceId != device.deviceId,
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                shape = RectangleShape,
+                                border = BorderStroke(1.dp, TajerBorder),
+                                contentPadding = PaddingValues(horizontal = 6.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
+                            ) {
+                                Text(
+                                    when {
+                                        updatingManagerDeviceId == device.deviceId -> "جارٍ التحديث..."
+                                        device.enabled -> "إيقاف الخط"
+                                        else -> "استئناف الخط"
+                                    },
+                                    fontSize = 10.sp
+                                )
+                            }
+                            TextButton(
+                                onClick = { pendingRevokeDevice = device },
+                                enabled = updatingManagerDeviceId != device.deviceId,
+                                modifier = Modifier.height(40.dp)
+                            ) {
+                                Text("إلغاء الربط", color = Color(0xFF9B563F), fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(26.dp))
+        HorizontalDivider(color = TajerBorder)
+        Spacer(Modifier.height(18.dp))
         SectionHeading("إنشاء دعوة جديدة", "اختر شبكة الشريحة الموجودة في الهاتف الذي تريد ربطه.")
         Spacer(Modifier.height(11.dp))
         Row(
@@ -1670,6 +1813,40 @@ private fun DeviceManagementPage(
             lineHeight = 18.sp
         )
         Spacer(Modifier.height(18.dp))
+    }
+
+    pendingRevokeDevice?.let { device ->
+        AlertDialog(
+            onDismissRequest = { pendingRevokeDevice = null },
+            title = {
+                Text("إلغاء ربط الهاتف", color = TajerInk, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text(
+                    "لن يستطيع هذا الهاتف إرسال رسائل التتبع بعد الإلغاء. يمكنك ربط هاتف آخر بالشبكة نفسها بدعوة جديدة.",
+                    color = TajerMuted,
+                    fontSize = 12.sp,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingRevokeDevice = null
+                        onUpdateManagerDevice(device.deviceId, "revoke")
+                    }
+                ) {
+                    Text("إلغاء الربط", color = Color(0xFF9B563F))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRevokeDevice = null }) {
+                    Text("إبقاء الهاتف", color = TajerForest)
+                }
+            },
+            shape = RectangleShape,
+            containerColor = TajerSurface
+        )
     }
 }
 
