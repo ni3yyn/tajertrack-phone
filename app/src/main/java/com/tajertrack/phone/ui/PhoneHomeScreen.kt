@@ -1562,6 +1562,19 @@ private fun DeviceManagementPage(
 ) {
     var selectedOperator by remember { mutableStateOf("") }
     var pendingRevokeDevice by remember { mutableStateOf<ManagerSenderDevice?>(null) }
+    var showRevokeDialog by remember { mutableStateOf(false) }
+    var confirmRevokeAfterDismiss by remember { mutableStateOf(false) }
+    LaunchedEffect(showRevokeDialog, pendingRevokeDevice?.deviceId) {
+        if (!showRevokeDialog && pendingRevokeDevice != null) {
+            delay(420)
+            val target = pendingRevokeDevice
+            pendingRevokeDevice = null
+            if (confirmRevokeAfterDismiss && target != null) {
+                onUpdateManagerDevice(target.deviceId, "revoke")
+            }
+            confirmRevokeAfterDismiss = false
+        }
+    }
     val operators = listOf(
         "djezzy" to "Djezzy",
         "mobilis" to "Mobilis",
@@ -1846,7 +1859,10 @@ private fun DeviceManagementPage(
                                         )
                                     }
                                     TextButton(
-                                        onClick = { pendingRevokeDevice = device },
+                                        onClick = {
+                                            pendingRevokeDevice = device
+                                            showRevokeDialog = true
+                                        },
                                         enabled = updatingManagerDeviceId != device.deviceId,
                                         modifier = Modifier.height(40.dp).animateContentSize()
                                     ) {
@@ -2076,54 +2092,60 @@ private fun DeviceManagementPage(
     }
 
     pendingRevokeDevice?.let { device ->
-        Dialog(onDismissRequest = { pendingRevokeDevice = null }) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateContentSize(animationSpec = spring(stiffness = 420f)),
-                color = TajerSurface,
-                border = BorderStroke(1.dp, TajerBorder),
-                shape = RectangleShape
+        Dialog(onDismissRequest = { showRevokeDialog = false }) {
+            AnimatedVisibility(
+                visible = showRevokeDialog,
+                enter = sizeEnter,
+                exit = sizeExit
             ) {
-                Column(Modifier.fillMaxWidth().padding(20.dp)) {
-                    Text(
-                        "إلغاء ربط الهاتف",
-                        color = TajerInk,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        "لن يستطيع هذا الهاتف إرسال رسائل التتبع بعد الإلغاء. يمكنك ربط هاتف آخر بالشبكة نفسها بدعوة جديدة.",
-                        color = TajerMuted,
-                        fontSize = 12.sp,
-                        lineHeight = 20.sp
-                    )
-                    Spacer(Modifier.height(20.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(9.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TextButton(
-                            onClick = { pendingRevokeDevice = null },
-                            modifier = Modifier.weight(1f).height(44.dp).animateContentSize()
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(animationSpec = spring(stiffness = 420f)),
+                    color = TajerSurface,
+                    border = BorderStroke(1.dp, TajerBorder),
+                    shape = RectangleShape
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                        Text(
+                            "إلغاء ربط الهاتف",
+                            color = TajerInk,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "لن يستطيع هذا الهاتف إرسال رسائل التتبع بعد الإلغاء. يمكنك ربط هاتف آخر بالشبكة نفسها بدعوة جديدة.",
+                            color = TajerMuted,
+                            fontSize = 12.sp,
+                            lineHeight = 20.sp
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(9.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("إبقاء الهاتف", color = TajerForest, fontSize = 12.sp)
-                        }
-                        Button(
-                            onClick = {
-                                pendingRevokeDevice = null
-                                onUpdateManagerDevice(device.deviceId, "revoke")
-                            },
-                            modifier = Modifier.weight(1f).height(44.dp).animateContentSize(),
-                            shape = RectangleShape,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF9B563F),
-                                contentColor = Color.White
-                            )
-                        ) {
-                            Text("إلغاء الربط", fontSize = 12.sp)
+                            TextButton(
+                                onClick = { showRevokeDialog = false },
+                                modifier = Modifier.weight(1f).height(44.dp).animateContentSize()
+                            ) {
+                                Text("إبقاء الهاتف", color = TajerForest, fontSize = 12.sp)
+                            }
+                            Button(
+                                onClick = {
+                                    confirmRevokeAfterDismiss = true
+                                    showRevokeDialog = false
+                                },
+                                modifier = Modifier.weight(1f).height(44.dp).animateContentSize(),
+                                shape = RectangleShape,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF9B563F),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("إلغاء الربط", fontSize = 12.sp)
+                            }
                         }
                     }
                 }
