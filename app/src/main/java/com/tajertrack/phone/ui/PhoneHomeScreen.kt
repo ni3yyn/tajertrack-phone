@@ -103,6 +103,7 @@ private enum class PhoneDestination {
 fun PhoneHomeScreen(
     connected: Boolean,
     relayRunning: Boolean,
+    relayConnectionState: String,
     storeName: String,
     statusMessage: String,
     pairing: Boolean,
