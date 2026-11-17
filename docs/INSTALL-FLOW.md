@@ -11,15 +11,15 @@ The intended experience keeps merchant credentials private while allowing anothe
 5. On that phone, open the link, verify the store name and carrier, then approve.
 6. TajerTrack redirects to the app with a five-minute one-time pairing code. The app exchanges it for a device-specific token and stores that token encrypted using Android Keystore.
 7. Grant Android's SMS, SIM-state, and notification permissions.
-8. Choose the primary SIM. For a dual-SIM device, choose a secondary SIM and explicitly enable it when it should be eligible for its matching carrier.
+8. On a single-SIM phone, the only active SIM is selected automatically. On a dual-SIM phone, use the same selector to enable either one or both SIMs; enabled SIM names remain visible when the selector is closed.
 9. Start the relay.
 
 The invited phone owner does not sign in as the merchant, and the merchant must never share their account password. The invitation is scoped to one operator slot.
 
 ## SIM selection
 
-- The primary SIM is eligible by default.
-- The secondary SIM is disabled by default. Enabling it adds it to the eligible SIM set; it does not cause alternation or additional messages.
+- A single active SIM is selected automatically on a single-SIM phone.
+- On a dual-SIM phone, either one or both SIMs can be enabled from the same selector. Enabling both does not cause alternation or additional messages; this phone supports up to two enabled SIMs.
 - The service matches the customer number's operator to the sender-line credential and the active SIM carrier.
 - If a matching SIM is missing or disabled, no other network is silently substituted. The job stays pending for the correct line. Invalid or unsupported customer numbers are marked skipped rather than routed to a different SIM.
 - A phone may hold more than one sender-line credential if it has multiple SIMs. A line on another physical phone keeps its own independent credential.
