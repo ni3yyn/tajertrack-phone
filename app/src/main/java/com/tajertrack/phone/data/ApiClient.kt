@@ -63,9 +63,9 @@ class ApiClient {
         val deviceToken = response.optString("deviceToken")
         val deviceId = response.optString("senderDeviceId")
         val operatorCode = response.optString("operatorCode")
+            .takeIf { it in setOf("djezzy", "mobilis", "ooredoo") }
         if (managerToken.isBlank() || managerDeviceId.isBlank() ||
-            deviceToken.isBlank() || deviceId.isBlank() ||
-            operatorCode !in setOf("djezzy", "mobilis", "ooredoo")
+            deviceToken.isBlank() || deviceId.isBlank()
         ) {
             throw GatewayProtocolException("The manager pairing response did not include both device credentials.")
         }
@@ -246,7 +246,8 @@ class ApiClient {
                     retryAfterMs = response.header("Retry-After")
                         ?.toLongOrNull()
                         ?.times(1_000L)
-                        ?.coerceIn(1_000L, 300_000L)
+                        ?.coerceIn(1_000L, 300_000L),
+                    serverErrorCode = parsed?.optString("errorCode")?.takeIf { it.isNotBlank() }
                 )
             }
             return parsed ?: throw GatewayProtocolException("TajerTrack returned an invalid response.")
@@ -272,7 +273,8 @@ class ApiClient {
                 throw GatewayHttpException(
                     statusCode = response.code,
                     message = serverMessage ?: "TajerTrack returned HTTP " + response.code + ".",
-                    retryAfterMs = retryAfterMs
+                    retryAfterMs = retryAfterMs,
+                    serverErrorCode = parsed?.optString("errorCode")?.takeIf { it.isNotBlank() }
                 )
             }
             return parsed ?: throw GatewayProtocolException("TajerTrack returned an invalid response.")
@@ -284,6 +286,10 @@ class ApiClient {
             val causes = generateSequence(error) { it.cause }.take(8).toList()
 
             if (error is GatewayHttpException) {
+                val serverMessage = error.message
+                    .takeIf { it.isNotBlank() && !it.startsWith("TajerTrack returned HTTP ") }
+                if (serverMessage != null) return serverMessage
+
                 return when (error.statusCode) {
                     401, 403 -> "انتهت صلاحية ربط هذا الهاتف أو تم إيقافه. أعد ربطه من التطبيق."
                     404 -> "مسار خدمة الهاتف غير متاح على الخادم. حدّث التطبيق أو تواصل مع دعم تاجر تراك."
@@ -336,7 +342,7 @@ data class ManagerPairingResult(
     val senderToken: String,
     val senderDeviceId: String,
     val storeName: String,
-    val operatorCode: String
+    val operatorCode: String?
 )
 
 data class ManagerInviteResult(
@@ -383,7 +389,8 @@ data class ClaimResult(
 class GatewayHttpException(
     val statusCode: Int,
     message: String,
-    val retryAfterMs: Long? = null
+    val retryAfterMs: Long? = null,
+    val serverErrorCode: String? = null
 ) : IOException(message)
 
 class GatewayProtocolException(message: String) : IOException(message)
