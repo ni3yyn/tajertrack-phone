@@ -172,6 +172,13 @@ class SmsGatewayService : Service() {
                     continue
                 }
 
+                // A short persistent spacing avoids a burst when a phone
+                // reconnects with a large backlog. It is pacing, not a daily
+                // quota: eligible messages continue until the 72-hour window.
+                val spacingRemaining = preferences.lastSmsDispatchAt +
+                    MIN_SMS_SEND_SPACING_MS - System.currentTimeMillis()
+                if (spacingRemaining > 0) delay(spacingRemaining)
+
                 val activeSubscriptions = runCatching {
                     getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList.orEmpty()
                 }.getOrElse {
@@ -717,5 +724,6 @@ class SmsGatewayService : Service() {
         private const val IDLE_DELAY_MAX_MS = 30_000L
         private const val PAUSED_DELAY_MS = 30_000L
         private const val SMS_RESULT_TIMEOUT_MS = 90_000L
+        private const val MIN_SMS_SEND_SPACING_MS = 3_000L
     }
 }
