@@ -238,7 +238,8 @@ class ApiClient {
             "/api/mobile/sms-gateway/device/dispatch",
             JSONObject()
                 .put("jobId", jobId)
-                .put("claimToken", claimToken),
+                .put("claimToken", claimToken)
+                .put("deliveryReportRequested", true),
             token
         )
         if (!response.optBoolean("success")) {
@@ -258,6 +259,29 @@ class ApiClient {
             throw GatewayProtocolException("TajerTrack did not return a valid registered merchant phone.")
         }
         SmsTestTarget(phone = phone, message = message)
+    }
+
+    suspend fun reportDelivery(
+        jobId: String,
+        claimToken: String,
+        deliveryStatus: String,
+        statusCode: Int?,
+        reportedAt: Long
+    ) = withContext(Dispatchers.IO) {
+        if (deliveryStatus !in setOf("delivered", "failed", "unknown")) {
+            throw GatewayProtocolException("Invalid SMS delivery result.")
+        }
+        val body = JSONObject()
+            .put("jobId", jobId)
+            .put("claimToken", claimToken)
+            .put("deliveryStatus", deliveryStatus)
+            .put("reportedAt", reportedAt)
+        if (statusCode != null && statusCode >= 0) body.put("statusCode", statusCode)
+
+        val response = post("/api/mobile/sms-gateway/device/delivery-report", body, token = null)
+        if (!response.optBoolean("success")) {
+            throw GatewayProtocolException("TajerTrack did not confirm the delivery report.")
+        }
     }
 
     suspend fun report(
