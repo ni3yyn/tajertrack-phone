@@ -3,6 +3,8 @@ package com.tajertrack.phone
 import android.Manifest
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -48,6 +50,10 @@ class MainActivity : ComponentActivity() {
     private var statusSyncJob: Job? = null
     private var lastObservedRelayStatusAt = 0L
     private var storeName by mutableStateOf("")
+    private var isManager by mutableStateOf(false)
+    private var isCreatingInvite by mutableStateOf(false)
+    private var invitationUrl by mutableStateOf("")
+    private var invitationStatus by mutableStateOf("")
     private var statusMessage by mutableStateOf("")
     private var simChoices by mutableStateOf(emptyList<SimChoice>())
     private var selectedSimId by mutableStateOf(-1)
@@ -103,6 +109,10 @@ class MainActivity : ComponentActivity() {
                     relayRunning = isRelayRunning,
                     relayConnectionState = relayConnectionState,
                     storeName = storeName,
+                    managerDevice = isManager,
+                    invitationUrl = invitationUrl,
+                    invitationStatus = invitationStatus,
+                    creatingInvite = isCreatingInvite,
                     statusMessage = statusMessage,
                     pairing = isPairing,
                     simSetupUnlocked = simSetupUnlocked,
@@ -122,7 +132,13 @@ class MainActivity : ComponentActivity() {
                     updateMessage = updateMessage,
                     availableUpdateVersion = availableUpdate?.version,
                     onCheckForUpdates = ::checkForUpdates,
-                    onDownloadUpdate = ::openUpdateDownload
+                    onDownloadUpdate = ::openUpdateDownload,
+                    onCreateInvite = ::createManagerInvite,
+                    onSendInviteBySms = ::sendInviteBySms,
+                    onShareInvite = ::shareInvite,
+                    onCopyInvite = ::copyInvite,
+                    onCopyDownloadLink = ::copyDownloadLink,
+                    onCopyInviteMessage = ::copyInviteMessage
                 )
             }
         }
@@ -152,6 +168,7 @@ class MainActivity : ComponentActivity() {
         statusSyncJob = lifecycleScope.launch {
             while (true) {
                 isConnected = tokenStore.readProfiles().isNotEmpty()
+                isManager = tokenStore.hasManagerCredential()
                 storeName = tokenStore.storeName()
                 isRelayRunning = preferences.relayEnabled && SmsGatewayService.isRunning
                 relayConnectionState = if (preferences.relayEnabled && !SmsGatewayService.isRunning) {
@@ -174,6 +191,7 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshConnectionState() {
         isConnected = tokenStore.readProfiles().isNotEmpty()
+        isManager = tokenStore.hasManagerCredential()
         storeName = tokenStore.storeName()
         isRelayRunning = preferences.relayEnabled && SmsGatewayService.isRunning
         relayConnectionState = if (preferences.relayEnabled && !SmsGatewayService.isRunning) {
@@ -197,7 +215,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openPairingPage() {
-        val redirectUri = Uri.encode("tajertrack-sms://pair")
+        val redirectUri = Uri.encode("tajertrack-sms://manager-pair")
         val url = "${BuildConfig.TAJERTRACK_BASE_URL}/mobile/sms-gateway/connect?redirect_uri=$redirectUri"
         runCatching {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -208,15 +226,21 @@ class MainActivity : ComponentActivity() {
 
     private fun handlePairingIntent(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (uri.scheme != "tajertrack-sms" || uri.host != "pair") return
+        if (uri.scheme != "tajertrack-sms" || uri.host !in setOf("pair", "manager-pair")) return
+
+        val managerMode = uri.host == "manager-pair"
         val code = uri.getQueryParameter("code")?.trim().orEmpty()
         if (code.isBlank()) {
-            statusMessage = "رابط الربط غير مكتمل. افتح صفحة الربط من التطبيق مجدداً."
+            statusMessage = "رابط الربط غير مكتمل. افتح صفحة الربط من جديد."
             return
         }
 
         isPairing = true
-        statusMessage = "جارٍ ربط الهاتف بمتجرك..."
+        statusMessage = if (managerMode) {
+            "جارٍ اعتماد هذا الهاتف كهاتف رئيسي..."
+        } else {
+            "جارٍ ربط الهاتف كجهاز إرسال..."
+        }
         lifecycleScope.launch {
             try {
                 val deviceName = listOfNotNull(Build.MANUFACTURER, Build.MODEL)
@@ -224,21 +248,43 @@ class MainActivity : ComponentActivity() {
                     .trim()
                     .take(80)
                     .ifBlank { "Android phone" }
-                val result = ApiClient().completePairing(code, deviceName)
-                val saved = tokenStore.saveProfile(
-                    com.tajertrack.phone.data.DeviceCredential(
-                        deviceId = result.deviceId,
-                        token = result.deviceToken,
-                        storeName = result.storeName,
-                        operatorCode = result.operatorCode
+
+                if (managerMode) {
+                    val result = ApiClient().completeManagerPairing(code, deviceName)
+                    val saved = tokenStore.saveManagerPairing(
+                        managerDeviceId = result.managerDeviceId,
+                        managerToken = result.managerToken,
+                        profile = com.tajertrack.phone.data.DeviceCredential(
+                            deviceId = result.senderDeviceId,
+                            token = result.senderToken,
+                            storeName = result.storeName,
+                            operatorCode = result.operatorCode
+                        )
                     )
-                )
-                if (!saved) {
-                    throw IllegalStateException("تعذر حفظ صلاحية خط الإرسال بأمان على هذا الهاتف.")
+                    if (!saved) {
+                        throw IllegalStateException("تعذر حفظ صلاحيات الهاتف الرئيسي وخط الإرسال بأمان.")
+                    }
+                    isManager = true
+                    isConnected = true
+                    storeName = result.storeName
+                    statusMessage = "أصبح هذا الهاتف الرئيسي لمتجرك، ويمكنه إرسال الرسائل وإنشاء دعوات للهواتف الأخرى."
+                } else {
+                    val result = ApiClient().completePairing(code, deviceName)
+                    val saved = tokenStore.saveProfile(
+                        com.tajertrack.phone.data.DeviceCredential(
+                            deviceId = result.deviceId,
+                            token = result.deviceToken,
+                            storeName = result.storeName,
+                            operatorCode = result.operatorCode
+                        )
+                    )
+                    if (!saved) {
+                        throw IllegalStateException("تعذر حفظ صلاحية خط الإرسال بأمان على هذا الهاتف.")
+                    }
+                    isConnected = true
+                    storeName = result.storeName
+                    statusMessage = "تم ربط الهاتف كجهاز إرسال فقط. لا يملك صلاحية إدارة الدعوات أو حساب المتجر."
                 }
-                isConnected = true
-                storeName = result.storeName
-                statusMessage = "تم ربط الهاتف بنجاح. انتقل إلى إعداد إرسال الرسائل لتفعيل الأذونات واختيار الشريحة."
             } catch (error: Exception) {
                 statusMessage = ApiClient.describeFailure(error)
             } finally {
@@ -602,6 +648,97 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun createManagerInvite(operatorCode: String) {
+        if (isCreatingInvite) return
+        val managerToken = tokenStore.managerToken()
+        if (managerToken.isNullOrBlank() || !tokenStore.hasManagerCredential()) {
+            invitationStatus = "هذا الهاتف لا يملك صلاحية إدارة الأجهزة. أعد ربطه من حساب التاجر."
+            return
+        }
+
+        isCreatingInvite = true
+        invitationStatus = "جارٍ إنشاء رابط الدعوة..."
+        lifecycleScope.launch {
+            try {
+                val result = ApiClient().createManagerInvite(managerToken, operatorCode)
+                invitationUrl = result.inviteUrl
+                invitationStatus = "تم إنشاء دعوة ${operatorLabelArabic(result.operatorCode)}. تنتهي بعد 30 دقيقة وتُستخدم مرة واحدة."
+                statusMessage = invitationStatus
+            } catch (error: Exception) {
+                invitationStatus = ApiClient.describeFailure(error)
+            } finally {
+                isCreatingInvite = false
+            }
+        }
+    }
+
+    private fun operatorLabelArabic(operatorCode: String): String = when (operatorCode) {
+        "djezzy" -> "Djezzy"
+        "mobilis" -> "Mobilis"
+        "ooredoo" -> "Ooredoo"
+        else -> "الشبكة المحددة"
+    }
+
+    private fun invitationMessage(): String {
+        val url = invitationUrl
+        if (url.isBlank()) return ""
+        return "مرحباً! نحتاج إلى ربط هاتفك بخدمة إرسال رسائل تتبع الطلبات لمتجرنا.\n\n" +
+            "1. حمّل تطبيق TajerTrack Phone: $APP_DOWNLOAD_URL\n\n" +
+            "2. افتح رابط دعوة الربط: $url\n\n" +
+            "اتبع التعليمات لإكمال الربط. صلاحية الدعوة 30 دقيقة وتُستخدم مرة واحدة."
+    }
+
+    private fun sendInviteBySms() {
+        val message = invitationMessage()
+        if (message.isBlank()) {
+            invitationStatus = "أنشئ رابط الدعوة أولاً."
+            return
+        }
+        runCatching {
+            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse("smsto:")
+                putExtra("sms_body", message)
+            }
+            startActivity(Intent.createChooser(intent, "إرسال دعوة ربط الهاتف"))
+        }.onFailure {
+            invitationStatus = "تعذر فتح تطبيق الرسائل على هذا الهاتف."
+        }
+    }
+
+    private fun shareInvite() {
+        val message = invitationMessage()
+        if (message.isBlank()) {
+            invitationStatus = "أنشئ رابط الدعوة أولاً."
+            return
+        }
+        runCatching {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "دعوة ربط هاتف TajerTrack")
+                putExtra(Intent.EXTRA_TEXT, message)
+            }
+            startActivity(Intent.createChooser(intent, "مشاركة دعوة ربط الهاتف"))
+        }.onFailure {
+            invitationStatus = "تعذرت مشاركة الدعوة من هذا الهاتف."
+        }
+    }
+
+    private fun copyText(label: String, value: String) {
+        if (value.isBlank()) {
+            invitationStatus = "أنشئ رابط الدعوة أولاً."
+            return
+        }
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, value))
+        invitationStatus = "تم نسخ $label."
+    }
+
+    private fun copyInvite() = copyText("رابط الدعوة", invitationUrl)
+
+    private fun copyDownloadLink() = copyText("رابط تحميل التطبيق", APP_DOWNLOAD_URL)
+
+    private fun copyInviteMessage() = copyText("رسالة الدعوة كاملة", invitationMessage())
+
     private fun checkForUpdates() {
         if (isCheckingForUpdates) return
 
@@ -654,6 +791,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val TEST_SMS_RESULT_TIMEOUT_MS = 60_000L
+        private const val APP_DOWNLOAD_URL = "https://github.com/ni3yyn/tajertrack-phone/releases/latest"
     }
 }
 
