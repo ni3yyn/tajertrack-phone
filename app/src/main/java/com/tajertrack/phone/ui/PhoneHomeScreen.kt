@@ -46,6 +46,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Sms
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.AlertDialog
@@ -53,6 +54,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -63,6 +66,8 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -129,6 +134,8 @@ fun PhoneHomeScreen(
     loadingSmsMessages: Boolean,
     hasMoreSmsMessages: Boolean,
     smsMessageFilter: String,
+    smsSearchQuery: String,
+    smsDeviceFilter: String,
     statusMessage: String,
     pairing: Boolean,
     simSetupUnlocked: Boolean,
@@ -159,7 +166,9 @@ fun PhoneHomeScreen(
     onUpdateManagerDevice: (String, String) -> Unit,
     onRefreshManagerSmsMessages: () -> Unit,
     onLoadMoreManagerSmsMessages: () -> Unit,
-    onFilterManagerSmsMessages: (String) -> Unit
+    onFilterManagerSmsMessages: (String) -> Unit,
+    onSearchManagerSmsMessages: (String) -> Unit,
+    onFilterManagerSmsDevice: (String) -> Unit
 ) {
     CompositionDirectionRtl {
         val drawerState = androidx.compose.material3.rememberDrawerState(
@@ -318,13 +327,18 @@ fun PhoneHomeScreen(
                                 )
                                 PhoneDestination.SmsLog -> if (managerDevice) SmsMessageLogPage(
                                     messages = smsMessages,
+                                    senderDevices = senderDevices,
                                     statusMessage = smsMessagesStatus,
                                     loading = loadingSmsMessages,
                                     hasMore = hasMoreSmsMessages,
                                     selectedFilter = smsMessageFilter,
+                                    searchQuery = smsSearchQuery,
+                                    selectedDeviceId = smsDeviceFilter,
                                     onRefresh = onRefreshManagerSmsMessages,
                                     onLoadMore = onLoadMoreManagerSmsMessages,
-                                    onFilterChange = onFilterManagerSmsMessages
+                                    onFilterChange = onFilterManagerSmsMessages,
+                                    onSearch = onSearchManagerSmsMessages,
+                                    onDeviceFilterChange = onFilterManagerSmsDevice
                                 ) else ConnectionPage(
                                     connected = connected,
                                     storeName = storeName,
@@ -2097,14 +2111,24 @@ private val smsLogFilters = listOf(
 @Composable
 private fun SmsMessageLogPage(
     messages: List<SmsMessageLogEntry>,
+    senderDevices: List<ManagerSenderDevice>,
     statusMessage: String,
     loading: Boolean,
     hasMore: Boolean,
     selectedFilter: String,
+    searchQuery: String,
+    selectedDeviceId: String,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
-    onFilterChange: (String) -> Unit
+    onFilterChange: (String) -> Unit,
+    onSearch: (String) -> Unit,
+    onDeviceFilterChange: (String) -> Unit
 ) {
+    var searchText by remember { mutableStateOf(searchQuery) }
+    var deviceMenuExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(searchQuery) { searchText = searchQuery }
+    val selectedDevice = senderDevices.firstOrNull { it.deviceId == selectedDeviceId }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -2196,6 +2220,114 @@ private fun SmsMessageLogPage(
                     )
                 }
                 Spacer(Modifier.weight(1f))
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = searchText,
+                onValueChange = { searchText = it.take(80) },
+                modifier = Modifier.weight(1f).height(54.dp),
+                singleLine = true,
+                shape = RectangleShape,
+                placeholder = {
+                    Text("اسم العميل أو رقم الهاتف", fontSize = 11.sp, color = TajerMuted)
+                },
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontSize = 12.sp,
+                    color = TajerInk
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = TajerForest,
+                    unfocusedBorderColor = TajerBorder,
+                    focusedContainerColor = TajerSurface,
+                    unfocusedContainerColor = TajerSurface,
+                    focusedTextColor = TajerInk,
+                    unfocusedTextColor = TajerInk,
+                    cursorColor = TajerForest
+                )
+            )
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = { onSearch(searchText) },
+                enabled = !loading,
+                modifier = Modifier.height(54.dp),
+                shape = RectangleShape,
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = TajerForest,
+                    contentColor = Color.White
+                )
+            ) {
+                Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(5.dp))
+                Text("بحث", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        Spacer(Modifier.height(9.dp))
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !loading) { deviceMenuExpanded = true },
+                color = TajerSurface,
+                border = BorderStroke(1.dp, if (deviceMenuExpanded) TajerForest else TajerBorder),
+                shape = RectangleShape
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("جهاز الإرسال", color = TajerMuted, fontSize = 9.sp)
+                        Text(
+                            selectedDevice?.let { smsDeviceDisplayLabel(it) } ?: "كل أجهزة الإرسال",
+                            color = TajerInk,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1
+                        )
+                    }
+                    Icon(
+                        Icons.Outlined.ExpandMore,
+                        contentDescription = "اختيار جهاز الإرسال",
+                        tint = TajerForest,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+            }
+            DropdownMenu(
+                expanded = deviceMenuExpanded,
+                onDismissRequest = { deviceMenuExpanded = false },
+                modifier = Modifier.fillMaxWidth(0.86f)
+            ) {
+                DropdownMenuItem(
+                    text = { Text("كل أجهزة الإرسال", fontSize = 12.sp) },
+                    onClick = {
+                        deviceMenuExpanded = false
+                        onDeviceFilterChange("")
+                    }
+                )
+                senderDevices.forEach { device ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(smsDeviceDisplayLabel(device), fontSize = 12.sp)
+                                if (device.revoked) {
+                                    Text("تم إلغاء الربط", fontSize = 9.sp, color = TajerMuted)
+                                }
+                            }
+                        },
+                        onClick = {
+                            deviceMenuExpanded = false
+                            onDeviceFilterChange(device.deviceId)
+                        }
+                    )
+                }
             }
         }
         Spacer(Modifier.height(15.dp))
@@ -2464,6 +2596,18 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
             }
         }
     }
+}
+
+private fun smsDeviceDisplayLabel(device: ManagerSenderDevice): String {
+    val operator = smsOperatorLabel(device.operatorCode)
+    val state = when {
+        device.revoked -> "ملغي"
+        !device.enabled -> "متوقف"
+        else -> ""
+    }
+    return listOf(device.displayName, operator, state)
+        .filter(String::isNotBlank)
+        .joinToString(" · ")
 }
 
 private fun smsOperatorLabel(operatorCode: String?): String = when (operatorCode) {
