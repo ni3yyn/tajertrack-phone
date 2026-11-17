@@ -37,7 +37,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CellTower
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Home
@@ -958,7 +957,7 @@ private fun SendingPage(
             title = "إرسال الرسائل",
             subtitle = when {
                 !connected -> "اربط الهاتف بمتجرك أولاً لإعداد خدمة الرسائل."
-                simSetupUnlocked -> "اختر الشريحة الأساسية، وفعّل الثانية عند الحاجة. يطابق التطبيق شبكة كل عميل بالشريحة المناسبة ويرسل رسالة واحدة فقط."
+                simSetupUnlocked -> "فعّل شريحة واحدة أو الشريحتين من القائمة. يطابق التطبيق شبكة العميل بالشريحة المفعّلة المناسبة ويرسل رسالة واحدة فقط."
                 else -> "ابدأ إعداد الخدمة واسمح بالأذونات المطلوبة لإظهار شرائح الاتصال."
             }
         )
