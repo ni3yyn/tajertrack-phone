@@ -1485,7 +1485,7 @@ private fun DeviceManagementPage(
     onCopyDownloadLink: () -> Unit,
     onCopyInviteMessage: () -> Unit
 ) {
-    var selectedOperator by remember { mutableStateOf("mobilis") }
+    var selectedOperator by remember { mutableStateOf("") }
     var pendingRevokeDevice by remember { mutableStateOf<ManagerSenderDevice?>(null) }
     val operators = listOf(
         "djezzy" to "Djezzy",
@@ -1500,7 +1500,7 @@ private fun DeviceManagementPage(
             .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
         PageIntro(
-            number = "02",
+            number = "03",
             title = "إدارة أجهزة الإرسال",
             subtitle = "أنشئ دعوة آمنة لهاتف آخر حتى يرسل رسائل التتبع من شريحته."
         )
@@ -1681,7 +1681,7 @@ private fun DeviceManagementPage(
         Spacer(Modifier.height(13.dp))
         Button(
             onClick = { onCreateInvite(selectedOperator) },
-            enabled = !creatingInvite,
+            enabled = !creatingInvite && selectedOperator.isNotBlank(),
             modifier = Modifier.fillMaxWidth().height(54.dp),
             shape = RectangleShape,
             colors = ButtonDefaults.buttonColors(
@@ -1700,7 +1700,11 @@ private fun DeviceManagementPage(
                 Spacer(Modifier.width(10.dp))
             }
             Text(
-                if (creatingInvite) "جارٍ إنشاء الدعوة..." else "إنشاء رابط الدعوة",
+                when {
+                    creatingInvite -> "جارٍ إنشاء الدعوة..."
+                    selectedOperator.isBlank() -> "اختر الشبكة أولاً"
+                    else -> "إنشاء رابط الدعوة"
+                },
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -1889,7 +1893,7 @@ private fun GuidePage() {
             .padding(horizontal = 21.dp, vertical = 22.dp)
     ) {
         PageIntro(
-            number = "03",
+            number = "04",
             title = "الشروط والأسئلة",
             subtitle = "كل ما تحتاج معرفته عن الربط والشرائح والإرسال، بلغة واضحة."
         )
@@ -1937,7 +1941,7 @@ private fun AboutPage() {
             .padding(horizontal = 20.dp, vertical = 22.dp)
     ) {
         PageIntro(
-            number = "04",
+            number = "05",
             title = "حول التطبيق",
             subtitle = "معلومات سريعة عن تاجر تراك فون."
         )
