@@ -38,6 +38,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CellTower
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
@@ -116,9 +117,7 @@ fun PhoneHomeScreen(
     onStartRelay: () -> Unit,
     onStopRelay: () -> Unit,
     onSendTestSms: () -> Unit,
-    onSelectSim: (Int) -> Unit,
-    onSelectSecondarySim: (Int) -> Unit,
-    onToggleAlternateSims: (Boolean) -> Unit,
+    onToggleSim: (Int) -> Unit,
     onReconnect: () -> Unit,
     onExitApp: () -> Unit,
     isCheckingForUpdates: Boolean,
@@ -262,9 +261,7 @@ fun PhoneHomeScreen(
                                     selectedSimId = selectedSimId,
                                     secondarySimId = secondarySimId,
                                     alternateSimsEnabled = alternateSimsEnabled,
-                                    onSelectSim = onSelectSim,
-                                    onSelectSecondarySim = onSelectSecondarySim,
-                                    onToggleAlternateSims = onToggleAlternateSims,
+                                    onToggleSim = onToggleSim,
                                     onStartRelay = onStartRelay,
                                     onStopRelay = onStopRelay,
                                     onSendTestSms = onSendTestSms,
@@ -939,14 +936,17 @@ private fun SendingPage(
     selectedSimId: Int,
     secondarySimId: Int,
     alternateSimsEnabled: Boolean,
-    onSelectSim: (Int) -> Unit,
-    onSelectSecondarySim: (Int) -> Unit,
-    onToggleAlternateSims: (Boolean) -> Unit,
+    onToggleSim: (Int) -> Unit,
     onStartRelay: () -> Unit,
     onStopRelay: () -> Unit,
     onSendTestSms: () -> Unit,
     onReconnect: () -> Unit
 ) {
+    val enabledSimIds = buildSet {
+        if (selectedSimId >= 0) add(selectedSimId)
+        if (alternateSimsEnabled && secondarySimId >= 0) add(secondarySimId)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1006,7 +1006,7 @@ private fun SendingPage(
                     HorizontalDivider(color = TajerBorder)
                     Spacer(Modifier.height(17.dp))
                     Text(
-                        if (simSetupUnlocked) "شريحة الإرسال" else "تفعيل إعداد الإرسال",
+                        if (simSetupUnlocked) "شرائح الإرسال" else "تفعيل إعداد الإرسال",
                         fontSize = 14.sp,
                         color = TajerInk,
                         fontWeight = FontWeight.SemiBold
@@ -1014,7 +1014,7 @@ private fun SendingPage(
                     Spacer(Modifier.height(6.dp))
                     Text(
                         if (simSetupUnlocked) {
-                            "اختر الشريحة الأساسية. يمكنك تفعيل الثانية أيضاً؛ يختار التطبيق الشريحة المطابقة لشبكة العميل ويرسل رسالة واحدة فقط."
+                            "فعّل الشريحة التي تريد استخدامها، ويمكنك تفعيل الشريحتين معاً. سيختار التطبيق الشبكة المطابقة لرقم العميل ويرسل رسالة واحدة فقط."
                         } else {
                             "اضغط على زر التفعيل أولاً واسمح بالأذونات المطلوبة. ستظهر شرائح الاتصال بعد الموافقة."
                         },
@@ -1038,87 +1038,20 @@ private fun SendingPage(
                             if (simChoices.isNotEmpty()) {
                                 SimPicker(
                                     sims = simChoices,
-                                    selectedSimId = selectedSimId,
-                                    onSelect = onSelectSim,
-                                    placeholder = "الشريحة الأساسية"
+                                    enabledSimIds = enabledSimIds,
+                                    onToggle = onToggleSim
                                 )
-                                AnimatedVisibility(
-                                    visible = simChoices.size >= 2,
-                                    enter = fadeIn(tween(180)) + androidx.compose.animation.expandVertically(tween(220)),
-                                    exit = fadeOut(tween(120)) + androidx.compose.animation.shrinkVertically(tween(180))
-                                ) {
-                                    Column {
-                                        Spacer(Modifier.height(13.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Column(Modifier.weight(1f)) {
-                                                Text(
-                                                    "السماح باستخدام الشريحة الثانية",
-                                                    fontSize = 12.sp,
-                                                    color = TajerInk,
-                                                    fontWeight = FontWeight.SemiBold
-                                                )
-                                                Spacer(Modifier.height(3.dp))
-                                                Text(
-                                                    "اختياري — يسمح باستخدام خط الشبكة المطابق للشريحة الثانية.",
-                                                    fontSize = 10.sp,
-                                                    color = TajerMuted,
-                                                    lineHeight = 17.sp
-                                                )
-                                            }
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(22.dp)
-                                                    .background(if (alternateSimsEnabled) TajerForest else TajerSurface)
-                                                    .border(
-                                                        width = 1.dp,
-                                                        color = if (alternateSimsEnabled) TajerForest else TajerBorder,
-                                                        shape = RectangleShape
-                                                    )
-                                                    .clickable { onToggleAlternateSims(!alternateSimsEnabled) },
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    if (alternateSimsEnabled) "✓" else "",
-                                                    color = Color.White,
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-                                        AnimatedVisibility(
-                                            visible = alternateSimsEnabled,
-                                            enter = fadeIn(tween(160)) + androidx.compose.animation.expandVertically(tween(180)),
-                                            exit = fadeOut(tween(120)) + androidx.compose.animation.shrinkVertically(tween(150))
-                                        ) {
-                                            Column {
-                                                Spacer(Modifier.height(10.dp))
-                                                Text(
-                                                    "الشريحة الثانية",
-                                                    fontSize = 10.sp,
-                                                    color = TajerMuted
-                                                )
-                                                Spacer(Modifier.height(5.dp))
-                                                SimPicker(
-                                                    sims = simChoices.filterNot { it.subscriptionId == selectedSimId },
-                                                    selectedSimId = secondarySimId,
-                                                    onSelect = onSelectSecondarySim,
-                                                    placeholder = "اختر الشريحة الثانية"
-                                                )
-                                                Spacer(Modifier.height(5.dp))
-                                                Text(
-                                                    "يرسل التطبيق رسالة واحدة فقط، ويختار الشريحة التي تطابق شبكة رقم العميل. عند الإيقاف لن يستخدم الشريحة الثانية.",
-                                                    fontSize = 10.sp,
-                                                    color = TajerMuted,
-                                                    lineHeight = 17.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                                Spacer(Modifier.height(7.dp))
+                                Text(
+                                    if (simChoices.size == 1) {
+                                        "تم تفعيل الشريحة الوحيدة تلقائياً. يمكنك تغييرها عند تركيب شريحة أخرى."
+                                    } else {
+                                        "يمكنك تفعيل شريحة واحدة أو الشريحتين. يرسل التطبيق رسالة واحدة فقط عبر الشريحة المطابقة لشبكة العميل."
+                                    },
+                                    fontSize = 10.sp,
+                                    color = TajerMuted,
+                                    lineHeight = 17.sp
+                                )
                             } else {
                                 NoticePanel(
                                     title = "لا توجد شريحة متاحة",
@@ -1132,45 +1065,6 @@ private fun SendingPage(
             }
 
             Spacer(Modifier.height(14.dp))
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = if (relayRunning) TajerSage else TajerSurface,
-                border = BorderStroke(1.dp, if (relayRunning) TajerSage else TajerBorder),
-                shape = RectangleShape
-            ) {
-                Row(
-                    modifier = Modifier.padding(17.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Outlined.CellTower,
-                        contentDescription = null,
-                        tint = if (relayRunning) TajerForest else TajerMuted,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            if (relayRunning) "الإرسال يعمل" else "الإرسال متوقف",
-                            fontSize = 13.sp,
-                            color = TajerInk,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            if (relayRunning) relayConnectionDescription(relayConnectionState) else "فعّل الخدمة ليبدأ الهاتف استقبال الطلبات الجديدة.",
-                            fontSize = 10.sp,
-                            color = TajerMuted,
-                            lineHeight = 18.sp
-                        )
-                    }
-                    Box(
-                        Modifier
-                            .size(8.dp)
-                            .background(if (relayRunning) TajerForest else TajerClay)
-                    )
-                }
-            }
-            Spacer(Modifier.height(13.dp))
             if (relayRunning) {
                 OutlinedButton(
                     onClick = onStopRelay,
@@ -1384,65 +1278,73 @@ private fun FeatureRow(icon: ImageVector, title: String, detail: String) {
 @Composable
 private fun SimPicker(
     sims: List<SimChoice>,
-    selectedSimId: Int,
-    onSelect: (Int) -> Unit,
-    placeholder: String
+    enabledSimIds: Set<Int>,
+    onToggle: (Int) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selected = sims.firstOrNull { it.subscriptionId == selectedSimId }
 
-    Column {
-        Box {
-            OutlinedButton(
-                onClick = { expanded = true },
-                enabled = sims.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RectangleShape,
-                border = BorderStroke(1.dp, TajerBorder),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = TajerIvory,
-                    contentColor = TajerInk,
-                    disabledContentColor = TajerMuted
-                ),
-                contentPadding = PaddingValues(horizontal = 13.dp)
+    Box {
+        OutlinedButton(
+            onClick = { expanded = true },
+            enabled = sims.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RectangleShape,
+            border = BorderStroke(1.dp, TajerBorder),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = TajerIvory,
+                contentColor = TajerInk,
+                disabledContentColor = TajerMuted
+            ),
+            contentPadding = PaddingValues(horizontal = 13.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        selected?.label ?: if (sims.isEmpty()) "لا توجد شريحة متاحة" else placeholder,
-                        fontSize = 12.sp,
-                        color = if (sims.isEmpty()) TajerMuted else TajerInk,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text("⌄", fontSize = 18.sp, color = TajerForest)
-                }
+                Text(
+                    if (sims.isEmpty()) "لا توجد شريحة متاحة" else "اختر الشرائح المفعّلة",
+                    fontSize = 12.sp,
+                    color = if (sims.isEmpty()) TajerMuted else TajerInk,
+                    fontWeight = FontWeight.Medium
+                )
+                Text("⌄", fontSize = 18.sp, color = TajerForest)
             }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.background(TajerSurface).widthIn(min = 260.dp),
-                shape = RectangleShape,
-                containerColor = TajerSurface
-            ) {
-                sims.forEach { sim ->
-                    DropdownMenuItem(
-                        text = {
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(TajerSurface).widthIn(min = 260.dp),
+            shape = RectangleShape,
+            containerColor = TajerSurface
+        ) {
+            sims.forEach { sim ->
+                val enabled = sim.subscriptionId in enabledSimIds
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
                                 sim.label,
+                                modifier = Modifier.weight(1f),
                                 fontSize = 12.sp,
-                                color = if (sim.subscriptionId == selectedSimId) TajerForest else TajerInk,
-                                fontWeight = if (sim.subscriptionId == selectedSimId) FontWeight.SemiBold else FontWeight.Normal
+                                color = if (enabled) TajerForest else TajerInk,
+                                fontWeight = if (enabled) FontWeight.SemiBold else FontWeight.Normal
                             )
-                        },
-                        onClick = {
-                            expanded = false
-                            onSelect(sim.subscriptionId)
+                            if (enabled) {
+                                Icon(
+                                    Icons.Outlined.Check,
+                                    contentDescription = "مفعّلة",
+                                    tint = TajerForest,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
-                    )
-                }
+                    },
+                    onClick = { onToggle(sim.subscriptionId) }
+                )
             }
         }
     }
