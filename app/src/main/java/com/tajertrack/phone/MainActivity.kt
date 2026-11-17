@@ -856,7 +856,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val TEST_SMS_RESULT_TIMEOUT_MS = 60_000L
-        private const val APP_DOWNLOAD_URL = "https://github.com/ni3yyn/tajertrack-phone/releases/latest"
+        private const val APP_DOWNLOAD_URL = "https://github.com/ni3yyn/tajertrack-phone/releases/latest/download/tajertrack-phone.apk"
     }
 }
 
