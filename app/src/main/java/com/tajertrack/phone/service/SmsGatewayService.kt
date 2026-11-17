@@ -253,41 +253,9 @@ class SmsGatewayService : Service() {
                     val profile = line.profile
                     val subscriptionId = line.subscriptionId
                     val effectiveOperatorCode = line.operatorCode
-                    val claim = try {
-                        api.claim(profile.token, effectiveOperatorCode, line.allowCrossNetworkFallback)
-                    } catch (error: GatewayHttpException) {
-                        if (error.statusCode == 401 || error.statusCode == 403) {
-                            tokenStore.removeProfile(profile.deviceId)
-                            Log.i(TAG, "Removed revoked sender-line credential for device " + profile.deviceId)
-                            continue
-                        }
-                        throw error
-                    }
-
-                    markServerSuccess(preferences)
-                    consecutiveFailures = 0
-                    preferences.consecutiveRelayFailures = 0
-                    idleDelayMs = IDLE_DELAY_MIN_MS
-
-                    if (claim.deviceDisabled) {
-                        disabledLineSeen = true
-                        continue
-                    }
-                    if (claim.gatewayPaused || claim.merchantDisabled) {
-                        servicePaused = true
-                        break
-                    }
-                    if (claim.operatorConflict || claim.operatorUnassigned) {
-                        operatorConflict = true
-                        continue
-                    }
-
-                    val job = claim.job ?: continue
-
-                    // Recheck the exact SIM and permissions immediately before
                     hasEligibleLine = true
                     val claim = try {
-                        api.claim(profile.token, effectiveOperatorCode)
+                        api.claim(profile.token, effectiveOperatorCode, line.allowCrossNetworkFallback)
                     } catch (error: GatewayHttpException) {
                         if (error.statusCode == 401 || error.statusCode == 403) {
                             tokenStore.removeProfile(profile.deviceId)
