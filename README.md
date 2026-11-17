@@ -64,7 +64,7 @@ GitHub Actions runs the Android APK build and lint checks. Debug artifacts are f
 
 ### Publish a merchant-facing release
 
-The signed release workflow runs when a `v*` tag is pushed, or manually from **GitHub → Actions → Signed Android release → Run workflow**. For a manual run, enter a version such as `0.2.0`. The workflow builds and verifies the signed release APK, generates a SHA-256 checksum, creates a GitHub Release, and attaches:
+Every push to `main` automatically starts a signed release. The workflow reads the latest stable GitHub Release and increments its patch version (for example, `v1.0.0` → `v1.0.1`), then builds and verifies the APK, generates a SHA-256 checksum, creates the GitHub Release, and attaches the files below. Releases are serialized so concurrent pushes cannot calculate the same next version; when several pushes arrive while a release is running, the newest pending push is the one retained. Pushing a `v*` tag still publishes that exact version. A manual **GitHub → Actions → Signed Android release → Run workflow** remains available for exceptional releases, and asks for an explicit version.
 
 - `tajertrack-phone.apk`
 - `SHA256SUMS.txt`
