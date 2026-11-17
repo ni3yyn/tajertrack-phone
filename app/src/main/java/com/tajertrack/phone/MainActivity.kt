@@ -115,9 +115,7 @@ class MainActivity : ComponentActivity() {
                     onStartRelay = ::requestPermissionsAndStart,
                     onStopRelay = ::stopRelay,
                     onSendTestSms = ::sendTestSms,
-                    onSelectSim = ::selectSim,
-                    onSelectSecondarySim = ::selectSecondarySim,
-                    onToggleAlternateSims = ::toggleAlternateSims,
+                    onToggleSim = ::toggleSim,
                     onReconnect = ::openPairingPage,
                     onExitApp = { finish() },
                     isCheckingForUpdates = isCheckingForUpdates,
@@ -335,24 +333,45 @@ class MainActivity : ComponentActivity() {
             SimChoice(subscription.subscriptionId, "$operatorLabel — $carrier — SIM $slot", operatorCode)
         }
 
-        if (simChoices.none { it.subscriptionId == selectedSimId }) {
-            selectedSimId = when {
-                simChoices.size == 1 -> simChoices.first().subscriptionId
-                else -> -1
-            }
-            preferences.selectedSubscriptionId = selectedSimId
+        if (simChoices.size == 1) {
+            // A single-SIM phone should work immediately without making the
+            // merchant choose the only available option.
+            val onlySimId = simChoices.first().subscriptionId
+            selectedSimId = onlySimId
+            secondarySimId = -1
+            alternateSimsEnabled = false
+            preferences.selectedSubscriptionId = onlySimId
+            preferences.secondarySubscriptionId = -1
+            preferences.alternateSimsEnabled = false
+            return
         }
 
-        if (
-            secondarySimId == selectedSimId ||
-            simChoices.none { it.subscriptionId == secondarySimId }
-        ) {
-            secondarySimId = -1
-            preferences.secondarySubscriptionId = -1
-            if (alternateSimsEnabled) {
+        val secondaryStillAvailable = alternateSimsEnabled &&
+            secondarySimId >= 0 &&
+            secondarySimId != selectedSimId &&
+            simChoices.any { it.subscriptionId == secondarySimId }
+
+        if (simChoices.none { it.subscriptionId == selectedSimId }) {
+            // If the primary SIM disappeared but the previously enabled
+            // secondary SIM remains, promote it instead of disabling sending.
+            selectedSimId = if (secondaryStillAvailable) secondarySimId else -1
+            preferences.selectedSubscriptionId = selectedSimId
+            if (secondaryStillAvailable) {
+                secondarySimId = -1
                 alternateSimsEnabled = false
+                preferences.secondarySubscriptionId = -1
                 preferences.alternateSimsEnabled = false
-                statusMessage = "لم تعد الشريحتان المحددتان متاحتين. تم إيقاف الشريحة الثانية؛ اخترها من جديد عند الحاجة."
+            }
+        }
+
+        if (!secondaryStillAvailable || secondarySimId == selectedSimId) {
+            val hadSecondaryEnabled = alternateSimsEnabled
+            secondarySimId = -1
+            alternateSimsEnabled = false
+            preferences.secondarySubscriptionId = -1
+            preferences.alternateSimsEnabled = false
+            if (hadSecondaryEnabled) {
+                statusMessage = "تغيّرت الشرائح المتاحة. تم تحديث الشرائح المفعّلة؛ راجع اختيارك قبل تشغيل الإرسال."
             }
         }
     }
@@ -381,40 +400,61 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun selectSim(subscriptionId: Int) {
-        if (subscriptionId == secondarySimId) {
-            val previousPrimary = selectedSimId
-            secondarySimId = previousPrimary
-            preferences.secondarySubscriptionId = previousPrimary
-        }
-        selectedSimId = subscriptionId
-        preferences.selectedSubscriptionId = subscriptionId
-        statusMessage = "تم اختيار الشريحة الأساسية. ستُستخدم فقط مع خط الشبكة المطابق لها."
-    }
+    private fun toggleSim(subscriptionId: Int) {
+        if (simChoices.none { it.subscriptionId == subscriptionId }) return
 
-    private fun selectSecondarySim(subscriptionId: Int) {
-        if (subscriptionId == selectedSimId) return
-        secondarySimId = subscriptionId
-        preferences.secondarySubscriptionId = subscriptionId
-        statusMessage = "تم اختيار الشريحة الثانية. فعّل استخدامها للسماح بخط الإرسال المطابق لها."
-    }
+        val isPrimaryEnabled = selectedSimId == subscriptionId
+        val isSecondaryEnabled = alternateSimsEnabled && secondarySimId == subscriptionId
 
-    private fun toggleAlternateSims(enabled: Boolean) {
-        if (enabled) {
-            if (selectedSimId < 0 || secondarySimId < 0 || selectedSimId == secondarySimId ||
-                simChoices.none { it.subscriptionId == selectedSimId } ||
-                simChoices.none { it.subscriptionId == secondarySimId }
-            ) {
-                statusMessage = "اختر شريحة أساسية وثانية مختلفتين أولاً لتفعيل الشريحة الثانية."
-                return
+        when {
+            isPrimaryEnabled -> {
+                if (isSecondaryEnabled) return
+                if (alternateSimsEnabled &&
+                    secondarySimId >= 0 &&
+                    simChoices.any { it.subscriptionId == secondarySimId }
+                ) {
+                    // Keep the other enabled SIM active and promote it to primary.
+                    selectedSimId = secondarySimId
+                    preferences.selectedSubscriptionId = secondarySimId
+                    secondarySimId = -1
+                    preferences.secondarySubscriptionId = -1
+                    alternateSimsEnabled = false
+                    preferences.alternateSimsEnabled = false
+                    statusMessage = "تم إيقاف الشريحة المحددة. تستمر الخدمة عبر الشريحة الأخرى المفعّلة."
+                } else {
+                    selectedSimId = -1
+                    preferences.selectedSubscriptionId = -1
+                    statusMessage = "تم إيقاف جميع شرائح الإرسال. اختر شريحة واحدة على الأقل للمتابعة."
+                }
             }
-        }
-        alternateSimsEnabled = enabled
-        preferences.alternateSimsEnabled = enabled
-        statusMessage = if (enabled) {
-            "تم السماح باستخدام الشريحة الثانية. يختار التطبيق الشريحة المطابقة لشبكة العميل ويرسل رسالة واحدة فقط لكل طلب."
-        } else {
-            "تم إيقاف استخدام الشريحة الثانية. لن يرسل التطبيق منها أي رسالة."
+
+            isSecondaryEnabled -> {
+                secondarySimId = -1
+                preferences.secondarySubscriptionId = -1
+                alternateSimsEnabled = false
+                preferences.alternateSimsEnabled = false
+                statusMessage = "تم إيقاف الشريحة الثانية. سيستخدم التطبيق الشريحة الأساسية المفعّلة فقط."
+            }
+
+            selectedSimId < 0 -> {
+                selectedSimId = subscriptionId
+                preferences.selectedSubscriptionId = subscriptionId
+                statusMessage = "تم تفعيل هذه الشريحة للإرسال."
+            }
+
+            !alternateSimsEnabled && simChoices.size >= 2 -> {
+                secondarySimId = subscriptionId
+                preferences.secondarySubscriptionId = subscriptionId
+                alternateSimsEnabled = true
+                preferences.alternateSimsEnabled = true
+                statusMessage = "تم تفعيل الشريحتين. سيختار التطبيق شبكة العميل ويرسل رسالة واحدة فقط من الشريحة المطابقة."
+            }
+
+            else -> {
+                // Only two SIM subscriptions are supported as active sender
+                // lines. Do not silently replace an already enabled line.
+                statusMessage = "لا يمكن تفعيل شريحة ثالثة على هذا الهاتف."
+            }
         }
     }
 
