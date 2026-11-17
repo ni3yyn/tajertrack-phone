@@ -1071,6 +1071,15 @@ private fun PageIntro(number: String, title: String, subtitle: String) {
 }
 
 @Composable
+private fun SectionHeading(title: String, subtitle: String) {
+    Column {
+        Text(title, color = TajerInk, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        Text(subtitle, color = TajerMuted, fontSize = 10.sp, lineHeight = 17.sp)
+    }
+}
+
+@Composable
 private fun NativeActionRow(
     icon: ImageVector,
     title: String,
