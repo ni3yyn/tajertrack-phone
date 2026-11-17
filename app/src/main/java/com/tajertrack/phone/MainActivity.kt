@@ -747,7 +747,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun filterManagerSmsMessages(filter: String) {
-        if (filter !in setOf("all", "pending", "submitted", "failed", "unknown")) return
+        if (filter !in setOf("all", "pending", "submitted", "failed", "unknown", "delivered", "awaiting_delivery", "delivery_failed", "delivery_unknown")) return
         if (isLoadingManagerSmsMessages || managerSmsMessagesFilter == filter) return
 
         managerSmsMessagesFilter = filter
