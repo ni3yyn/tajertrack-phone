@@ -274,12 +274,18 @@ fun PhoneHomeScreen(
                             targetState = destination,
                             label = "native-page-transition",
                             transitionSpec = {
-                                (fadeIn(tween(220)) + slideInHorizontally(
-                                    animationSpec = tween(240),
-                                    initialOffsetX = { width -> width / 18 }
+                                (expandVertically(
+                                    expandFrom = Alignment.CenterVertically,
+                                    animationSpec = tween(240)
+                                ) + expandHorizontally(
+                                    expandFrom = Alignment.End,
+                                    animationSpec = tween(240)
                                 )) togetherWith
-                                    (fadeOut(tween(150)) + slideOutHorizontally(
-                                        targetOffsetX = { width -> -width / 28 },
+                                    (shrinkVertically(
+                                        shrinkTowards = Alignment.CenterVertically,
+                                        animationSpec = tween(180)
+                                    ) + shrinkHorizontally(
+                                        shrinkTowards = Alignment.Start,
                                         animationSpec = tween(180)
                                     ))
                             }
@@ -1565,6 +1571,19 @@ private fun DeviceManagementPage(
         "ooredoo" to "Ooredoo"
     )
     val deviceListScrollState = rememberScrollState()
+    var displayedSenderDevices by remember { mutableStateOf(senderDevices) }
+    var exitingSenderDeviceIds by remember { mutableStateOf(emptySet<String>()) }
+    LaunchedEffect(senderDevices) {
+        val latestIds = senderDevices.map { it.deviceId }.toSet()
+        val removedDevices = displayedSenderDevices.filterNot { it.deviceId in latestIds }
+        if (removedDevices.isNotEmpty()) {
+            exitingSenderDeviceIds = removedDevices.map { it.deviceId }.toSet()
+            displayedSenderDevices = senderDevices + removedDevices
+            delay(420)
+        }
+        displayedSenderDevices = senderDevices
+        exitingSenderDeviceIds = emptySet()
+    }
     val sizeEnter = expandVertically(
         expandFrom = Alignment.Top,
         animationSpec = spring(stiffness = 420f)
@@ -1656,7 +1675,7 @@ private fun DeviceManagementPage(
             )
         }
         AnimatedVisibility(
-            visible = senderDevices.isEmpty() && !loadingSenderDevices,
+            visible = senderDevices.isEmpty() && displayedSenderDevices.isEmpty() && !loadingSenderDevices,
             enter = sizeEnter,
             exit = sizeExit
         ) {
@@ -1687,7 +1706,7 @@ private fun DeviceManagementPage(
             }
         }
         AnimatedVisibility(
-            visible = senderDevices.isNotEmpty(),
+            visible = displayedSenderDevices.isNotEmpty(),
             enter = sizeEnter,
             exit = sizeExit
         ) {
@@ -1698,7 +1717,12 @@ private fun DeviceManagementPage(
                     .height(286.dp)
                     .verticalScroll(deviceListScrollState)
             ) {
-                senderDevices.forEach { device ->
+                displayedSenderDevices.forEach { device ->
+                    AnimatedVisibility(
+                        visible = device.deviceId !in exitingSenderDeviceIds,
+                        enter = sizeEnter,
+                        exit = sizeExit
+                    ) {
                     Surface(
                         modifier = Modifier.fillMaxWidth().animateContentSize(
                             animationSpec = spring(stiffness = 420f)
@@ -1841,6 +1865,7 @@ private fun DeviceManagementPage(
                         }
                     }
                     Spacer(Modifier.height(9.dp))
+                    }
                 }
             }
         }
