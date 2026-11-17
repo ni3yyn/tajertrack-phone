@@ -203,8 +203,9 @@ class MainActivity : ComponentActivity() {
         statusSyncJob?.cancel()
         statusSyncJob = lifecycleScope.launch {
             while (true) {
-                isConnected = tokenStore.readProfiles().isNotEmpty()
                 isManager = tokenStore.hasManagerCredential()
+                // The manager credential is independent of the sender-line profile.
+                isConnected = tokenStore.readProfiles().isNotEmpty() || isManager
                 storeName = tokenStore.storeName()
                 isRelayRunning = preferences.relayEnabled && SmsGatewayService.isRunning
                 relayConnectionState = if (preferences.relayEnabled && !SmsGatewayService.isRunning) {
