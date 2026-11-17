@@ -100,6 +100,51 @@ class ApiClient {
             )
         }
 
+    suspend fun listManagerDevices(managerToken: String): List<ManagerSenderDevice> =
+        withContext(Dispatchers.IO) {
+            val response = get("/api/mobile/sms-gateway/manager/devices", managerToken)
+            val items = response.optJSONArray("devices") ?: return@withContext emptyList()
+            buildList {
+                for (index in 0 until items.length()) {
+                    val item = items.optJSONObject(index) ?: continue
+                    val deviceId = item.optString("deviceId")
+                    if (deviceId.isBlank()) continue
+                    add(
+                        ManagerSenderDevice(
+                            deviceId = deviceId,
+                            displayName = item.optString("displayName").ifBlank { "Android phone" },
+                            operatorCode = item.optString("operatorCode").takeIf { it in setOf("djezzy", "mobilis", "ooredoo") },
+                            enabled = item.optBoolean("enabled"),
+                            revoked = item.optBoolean("revoked"),
+                            isOnline = item.optBoolean("isOnline"),
+                            connectedAt = item.optString("connectedAt"),
+                            lastSeenAt = item.optString("lastSeenAt")
+                        )
+                    )
+                }
+            }
+        }
+
+    suspend fun updateManagerDevice(
+        managerToken: String,
+        deviceId: String,
+        action: String
+    ) = withContext(Dispatchers.IO) {
+        if (action !in setOf("pause", "resume", "revoke")) {
+            throw GatewayProtocolException("Invalid sender device action.")
+        }
+        val response = post(
+            "/api/mobile/sms-gateway/manager/devices",
+            JSONObject()
+                .put("deviceId", deviceId)
+                .put("action", action),
+            managerToken
+        )
+        if (!response.optBoolean("success")) {
+            throw GatewayProtocolException("TajerTrack did not confirm the sender device update.")
+        }
+    }
+
     suspend fun claim(token: String, operatorCode: String?): ClaimResult = withContext(Dispatchers.IO) {
         val payload = JSONObject()
             .put("appVersion", BuildConfig.VERSION_NAME)
@@ -179,6 +224,31 @@ class ApiClient {
         val response = post("/api/mobile/sms-gateway/device/report", body, token)
         if (!response.optBoolean("success")) {
             throw GatewayProtocolException("TajerTrack did not confirm the SMS result.")
+        }
+    }
+
+    private fun get(path: String, token: String): JSONObject {
+        val requestBuilder = Request.Builder()
+            .url("$baseUrl$path")
+            .header("Accept", "application/json")
+            .get()
+        if (token.isNotBlank()) requestBuilder.header("Authorization", "Bearer $token")
+
+        client.newCall(requestBuilder.build()).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            val parsed = runCatching { JSONObject(raw) }.getOrNull()
+            if (!response.isSuccessful) {
+                val serverMessage = parsed?.optString("error")?.takeIf { it.isNotBlank() }
+                throw GatewayHttpException(
+                    statusCode = response.code,
+                    message = serverMessage ?: "TajerTrack returned HTTP " + response.code + ".",
+                    retryAfterMs = response.header("Retry-After")
+                        ?.toLongOrNull()
+                        ?.times(1_000L)
+                        ?.coerceIn(1_000L, 300_000L)
+                )
+            }
+            return parsed ?: throw GatewayProtocolException("TajerTrack returned an invalid response.")
         }
     }
 
@@ -273,6 +343,18 @@ data class ManagerInviteResult(
     val expiresInSeconds: Long,
     val operatorCode: String
 )
+
+data class ManagerSenderDevice(
+    val deviceId: String,
+    val displayName: String,
+    val operatorCode: String?,
+    val enabled: Boolean,
+    val revoked: Boolean,
+    val isOnline: Boolean,
+    val connectedAt: String,
+    val lastSeenAt: String
+)
+
 
 
 data class SmsJob(
