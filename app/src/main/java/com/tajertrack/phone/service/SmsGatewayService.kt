@@ -431,9 +431,11 @@ class SmsGatewayService : Service() {
             return primary.takeIf { id -> enabledActive.any { it.subscriptionId == id } }
         }
 
-        return enabledActive.firstOrNull {
+        val matching = enabledActive.filter {
             detectOperator(it) == operatorCode
-        }?.subscriptionId
+        }
+        return matching.firstOrNull { it.subscriptionId == preferences.selectedSubscriptionId }?.subscriptionId
+            ?: matching.firstOrNull()?.subscriptionId
     }
 
     /**
@@ -513,26 +515,46 @@ class SmsGatewayService : Service() {
 
     private suspend fun sendSms(job: SmsJob, subscriptionId: Int): SmsSendOutcome {
         if (job.id.isBlank() || job.phone.isBlank() || job.message.isBlank()) {
-            return SmsSendOutcome("failed", "بيانات رسالة الطلب غير مكتملة.")
+            return SmsSendOutcome(
+                status = "failed",
+                error = "بيانات رسالة الطلب غير مكتملة.",
+                failureCode = "invalid_sms_job"
+            )
         }
         if (subscriptionId < 0) {
-            return SmsSendOutcome("failed", "لم يتم اختيار شريحة لإرسال الرسائل.")
+            return SmsSendOutcome(
+                status = "not_sent",
+                error = "لم تعد الشريحة المختارة متاحة. أعد اختيار شريحة مطابقة للشبكة.",
+                failureCode = "selected_sim_unavailable"
+            )
         }
 
-        val activeSubscriptions = if (
-            checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+        if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED ||
+            checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED
         ) {
-            runCatching {
-                getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList.orEmpty()
-            }.getOrNull()
-        } else {
-            return SmsSendOutcome("failed", "إذن الوصول إلى شرائح الاتصال غير متاح. افتح إعدادات التطبيق واسمح به ثم أعد اختيار الشريحة.")
+            return SmsSendOutcome(
+                status = "not_sent",
+                error = "أحد أذونات SMS أو شرائح الاتصال غير متاح. لم يستدعِ التطبيق Android.",
+                failureCode = "runtime_permission_missing"
+            )
         }
-        if (activeSubscriptions != null && activeSubscriptions.none { it.subscriptionId == subscriptionId }) {
-            return SmsSendOutcome("failed", "الشريحة المختارة لم تعد متاحة. افتح إعداد إرسال الرسائل واختر الشريحة من جديد.")
+
+        val activeSubscriptions = runCatching {
+            getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList.orEmpty()
+        }.getOrElse {
+            Log.w(TAG, "Could not recheck the selected SIM before SMS dispatch.", it)
+            emptyList()
+        }
+        if (activeSubscriptions.none { it.subscriptionId == subscriptionId }) {
+            return SmsSendOutcome(
+                status = "not_sent",
+                error = "أُزيلت الشريحة المختارة قبل الإرسال. سيبقى الطلب في قائمة الانتظار.",
+                failureCode = "sim_removed_before_send"
+            )
         }
 
         val result = SmsResultBus.register(job.id)
+        var sendCallStarted = false
         return try {
             val manager = if (Build.VERSION.SDK_INT >= 31) {
                 getSystemService(SmsManager::class.java).createForSubscriptionId(subscriptionId)
@@ -543,6 +565,7 @@ class SmsGatewayService : Service() {
 
             val resultIntent = Intent(this, SmsSendResultReceiver::class.java).apply {
                 action = SmsSendResultReceiver.ACTION_SMS_SENT
+                data = android.net.Uri.parse("tajertrack-sms://sent/${job.id}")
                 putExtra(SmsSendResultReceiver.EXTRA_JOB_ID, job.id)
             }
             val pendingIntent = PendingIntent.getBroadcast(
@@ -552,21 +575,44 @@ class SmsGatewayService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
+            // Persisted stage is already "invoking" before this line. Any process
+            // death after it is treated as ambiguous, never automatically resent.
+            sendCallStarted = true
             manager.sendTextMessage(job.phone, null, job.message, pendingIntent, null)
+
             withTimeoutOrNull(SMS_RESULT_TIMEOUT_MS) { result.await() }
                 ?: SmsSendOutcome(
-                    "unknown",
-                    "لم يؤكد Android نتيجة إرسال الرسالة. لن يعيد الهاتف إرسالها تلقائياً لتجنب التكرار."
+                    status = "unknown",
+                    error = "لم يؤكد Android نتيجة إرسال الرسالة خلال المهلة. قد تكون أُرسلت؛ لن تُكرر تلقائياً.",
+                    failureCode = "sent_callback_timeout"
                 )
         } catch (error: SecurityException) {
-            SmsSendOutcome("failed", "إذن إرسال الرسائل غير متاح. افتح إعدادات التطبيق واسمح بإرسال SMS.")
-        } catch (error: IllegalArgumentException) {
-            SmsSendOutcome("failed", "رفض Android رقم الهاتف أو محتوى الرسالة. تحقق من بيانات الطلب.")
-        } catch (error: Exception) {
             SmsSendOutcome(
-                "unknown",
-                "لم يتمكن الهاتف من تأكيد نتيجة الرسالة (" + error.javaClass.simpleName + "). لن يعيد إرسالها تلقائياً."
+                status = "not_sent",
+                error = "رفض Android الإرسال بسبب إذن غير متاح. لم تُرسل الرسالة؛ امنح الإذن ثم سيُعاد الطلب.",
+                failureCode = "runtime_permission_revoked"
             )
+        } catch (error: IllegalArgumentException) {
+            SmsSendOutcome(
+                status = "failed",
+                error = "رفض Android رقم الهاتف أو محتوى الرسالة. تحقق من رقم العميل وبيانات الطلب.",
+                failureCode = "invalid_sms_arguments"
+            )
+        } catch (error: Exception) {
+            Log.w(TAG, "SMS call failed for job ${job.id}.", error)
+            if (sendCallStarted) {
+                SmsSendOutcome(
+                    status = "unknown",
+                    error = "انقطع تأكيد Android بعد بدء استدعاء SMS (${error.javaClass.simpleName}). قد تكون أُرسلت؛ لن تُكرر تلقائياً.",
+                    failureCode = "sms_call_result_unknown"
+                )
+            } else {
+                SmsSendOutcome(
+                    status = "not_sent",
+                    error = "تعذر تجهيز مدير SMS قبل استدعاء Android. لم تُرسل الرسالة.",
+                    failureCode = "sms_manager_unavailable"
+                )
+            }
         } finally {
             SmsResultBus.remove(job.id)
         }
