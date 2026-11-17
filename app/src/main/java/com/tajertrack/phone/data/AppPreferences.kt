@@ -90,8 +90,20 @@ class AppPreferences(context: Context) {
     }
 
     /** Save the final/ambiguous SMS outcome synchronously before any network report. */
-    fun savePendingSmsOutcome(report: PendingSmsReport): Boolean =
-        savePendingSmsReport(report.copy(stage = STAGE_RESULT))
+    fun savePendingSmsOutcome(report: PendingSmsReport): Boolean {
+        if (preferences.getString(KEY_PENDING_REPORT_JOB_ID, null) != report.jobId) return false
+        val existingStage = preferences.getString(KEY_PENDING_REPORT_STAGE, null)
+        val existingStatus = preferences.getString(KEY_PENDING_REPORT_STATUS, null)
+        // A sent callback may have persisted a definitive result just before
+        // the coroutine's timeout path returns "unknown". Never overwrite it.
+        if (existingStage == STAGE_RESULT &&
+            existingStatus in setOf("submitted", "failed") &&
+            report.status == "unknown"
+        ) {
+            return true
+        }
+        return savePendingSmsReport(report.copy(stage = STAGE_RESULT))
+    }
 
     fun savePendingSmsReport(report: PendingSmsReport): Boolean {
         return preferences.edit()
