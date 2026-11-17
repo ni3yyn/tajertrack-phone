@@ -126,6 +126,56 @@ class ApiClient {
             }
         }
 
+    suspend fun listManagerSmsMessages(
+        managerToken: String,
+        offset: Int,
+        statusFilter: String
+    ): SmsMessageLogPage = withContext(Dispatchers.IO) {
+        val safeOffset = offset.coerceIn(0, 100_000)
+        val safeFilter = statusFilter.takeIf {
+            it in setOf("all", "pending", "submitted", "failed", "unknown")
+        } ?: "all"
+        val response = get(
+            "/api/mobile/sms-gateway/manager/messages?offset=$safeOffset&status=$safeFilter",
+            managerToken
+        )
+        val items = response.optJSONArray("messages") ?: return@withContext SmsMessageLogPage(
+            messages = emptyList(),
+            hasMore = false,
+            nextOffset = safeOffset
+        )
+        val messages = buildList {
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                val id = item.optString("id").takeIf(String::isNotBlank) ?: continue
+                add(
+                    SmsMessageLogEntry(
+                        id = id,
+                        orderReference = item.optString("orderReference").takeUnless { it.isBlank() || it == "null" }.orEmpty(),
+                        customerName = item.optString("customerName").takeUnless { it.isBlank() || it == "null" }.orEmpty(),
+                        customerPhone = item.optString("customerPhone").takeUnless { it.isBlank() || it == "null" }.orEmpty(),
+                        messageType = item.optString("messageType").ifBlank { "tracking_link" },
+                        status = item.optString("status").ifBlank { "unknown" },
+                        resultCode = item.optString("resultCode").takeUnless { it.isBlank() || it == "null" },
+                        eventAt = item.optString("eventAt").takeUnless { it.isBlank() || it == "null" },
+                        eventLabel = item.optString("eventLabel").ifBlank { "وقت تسجيل الطلب" },
+                        queuedAt = item.optString("queuedAt").takeUnless { it.isBlank() || it == "null" },
+                        attemptCount = item.optInt("attemptCount", 0),
+                        senderDeviceName = item.optString("senderDeviceName").takeUnless { it.isBlank() || it == "null" },
+                        senderDeviceId = item.optString("senderDeviceId").takeUnless { it.isBlank() || it == "null" },
+                        operatorCode = item.optString("operatorCode").takeUnless { it.isBlank() || it == "null" },
+                        errorMessage = item.optString("errorMessage").takeUnless { it.isBlank() || it == "null" }
+                    )
+                )
+            }
+        }
+        SmsMessageLogPage(
+            messages = messages,
+            hasMore = response.optBoolean("hasMore"),
+            nextOffset = response.optInt("nextOffset", safeOffset + messages.size)
+        )
+    }
+
     suspend fun updateManagerDevice(
         managerToken: String,
         deviceId: String,
@@ -365,6 +415,30 @@ data class ManagerSenderDevice(
 )
 
 
+
+data class SmsMessageLogEntry(
+    val id: String,
+    val orderReference: String,
+    val customerName: String,
+    val customerPhone: String,
+    val messageType: String,
+    val status: String,
+    val resultCode: String?,
+    val eventAt: String?,
+    val eventLabel: String,
+    val queuedAt: String?,
+    val attemptCount: Int,
+    val senderDeviceName: String?,
+    val senderDeviceId: String?,
+    val operatorCode: String?,
+    val errorMessage: String?
+)
+
+data class SmsMessageLogPage(
+    val messages: List<SmsMessageLogEntry>,
+    val hasMore: Boolean,
+    val nextOffset: Int
+)
 
 data class SmsJob(
     val id: String,
