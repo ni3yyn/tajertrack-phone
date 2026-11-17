@@ -747,7 +747,7 @@ class MainActivity : ComponentActivity() {
     private fun invitationMessage(): String {
         val url = invitationUrl
         if (url.isBlank()) return ""
-        return "مرحباً! نحتاج إلى ربط هاتفك بخدمة إرسال رسائل تتبع الطلبات لمتجرنا.\n\n" +
+        return "مرحباً! نحتاج إلى ربط هاتفك بخدمة إرسال رسائل تتبع الطلبات لمتجر ${storeName.ifBlank { "تاجر تراك" }}.\n\n" +
             "1. حمّل تطبيق TajerTrack Phone: $APP_DOWNLOAD_URL\n\n" +
             "2. افتح رابط دعوة الربط: $url\n\n" +
             "اتبع التعليمات لإكمال الربط. صلاحية الدعوة 30 دقيقة وتُستخدم مرة واحدة."
