@@ -2,6 +2,8 @@ name: Signed Android release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
@@ -14,8 +16,11 @@ on:
 permissions:
   contents: write
 
+# Serialize releases so each successful build calculates its version from the
+# release published by the previous run. Newer pushes supersede older pending
+# runs, keeping the published APK aligned with the latest main commit.
 concurrency:
-  group: android-release-${{ github.event.inputs.version || github.ref_name }}
+  group: android-release
   cancel-in-progress: false
 
 jobs:
@@ -52,24 +57,47 @@ jobs:
         env:
           INPUT_VERSION: ${{ inputs.version }}
           REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
           EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             VERSION="$INPUT_VERSION"
             TAG="v$VERSION"
-          else
+          elif [[ "$REF_TYPE" == "tag" ]]; then
             TAG="$REF_NAME"
             VERSION="${TAG#v}"
+          else
+            # Every push to main publishes the next patch release. Read only
+            # the latest stable GitHub Release, not prereleases or draft tags.
+            LATEST_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+            if [[ -z "$LATEST_TAG" ]]; then
+              LATEST_TAG="v0.0.0"
+            fi
+
+            if [[ "$LATEST_TAG" =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              MAJOR="${BASH_REMATCH[1]}"
+              MINOR="${BASH_REMATCH[2]}"
+              PATCH="${BASH_REMATCH[3]}"
+              PATCH=$((PATCH + 1))
+              VERSION="$MAJOR.$MINOR.$PATCH"
+              TAG="v$VERSION"
+            else
+              echo "::error::Latest stable release tag '$LATEST_TAG' is not MAJOR.MINOR.PATCH."
+              exit 1
+            fi
           fi
 
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Release version must use MAJOR.MINOR.PATCH (for example 0.2.0)."
+            echo "::error::Release version must use MAJOR.MINOR.PATCH (for example 1.0.1)."
             exit 1
           fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Publishing $TAG from commit $GITHUB_SHA"
 
       - name: Validate release signing secrets
         env:
