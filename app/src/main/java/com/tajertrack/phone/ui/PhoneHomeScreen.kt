@@ -1954,13 +1954,19 @@ private fun DeviceManagementPage(
                 disabledContentColor = Color.White.copy(alpha = 0.7f)
             )
         ) {
-            if (creatingInvite) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp
-                )
-                Spacer(Modifier.width(10.dp))
+            AnimatedVisibility(
+                visible = creatingInvite,
+                enter = sizeEnter,
+                exit = sizeExit
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(10.dp))
+                }
             }
             Text(
                 when {
