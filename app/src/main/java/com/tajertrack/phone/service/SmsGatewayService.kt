@@ -22,6 +22,7 @@ import com.tajertrack.phone.R
 import com.tajertrack.phone.data.ApiClient
 import com.tajertrack.phone.data.AppPreferences
 import com.tajertrack.phone.data.DeviceTokenStore
+import com.tajertrack.phone.data.DeviceCredential
 import com.tajertrack.phone.data.GatewayHttpException
 import com.tajertrack.phone.data.PendingSmsReport
 import com.tajertrack.phone.data.SmsJob
@@ -34,6 +35,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
+
+private data class SmsPollLine(
+    val profile: DeviceCredential,
+    val subscriptionId: Int,
+    val operatorCode: String,
+    val allowCrossNetworkFallback: Boolean
+)
 
 class SmsGatewayService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -193,11 +201,10 @@ class SmsGatewayService : Service() {
                 var operatorConflict = false
                 var claimedAndSent = false
 
-                // A carrier-neutral manager credential can poll once for each
-                // distinct operator represented by the SIMs the merchant enabled.
-                // Carrier-scoped invited credentials still poll only their assigned
-                // network. This lets a dual-SIM main phone serve both networks with
-                // one manager pairing and without binding the credential to one SIM.
+                // First poll every enabled SIM for on-network customer jobs.
+                // After those exact matches have had priority, the neutral main
+                // phone gets one fallback pass for networks without an enabled
+                // dedicated sender. Invited profiles remain carrier-scoped.
                 val profileLines = buildList {
                     profiles.forEach { profile ->
                         if (profile.operatorCode != null) {
@@ -208,7 +215,7 @@ class SmsGatewayService : Service() {
                                 preferences = preferences
                             )
                             if (subscriptionId != null) {
-                                add(Triple(profile, subscriptionId, profile.operatorCode))
+                                add(SmsPollLine(profile, subscriptionId, profile.operatorCode, false))
                             }
                         } else {
                             val enabledSubscriptions = activeSubscriptions.filter {
@@ -224,13 +231,60 @@ class SmsGatewayService : Service() {
                                 val chosenSim = matchingSims.firstOrNull {
                                     it.subscriptionId == preferences.selectedSubscriptionId
                                 } ?: matchingSims.first()
-                                add(Triple(profile, chosenSim.subscriptionId, operator))
+                                add(SmsPollLine(profile, chosenSim.subscriptionId, operator, false))
+                            }
+
+                            val fallbackSim = enabledSubscriptions.firstOrNull {
+                                it.subscriptionId == preferences.selectedSubscriptionId
+                            } ?: enabledSubscriptions.firstOrNull()
+                            fallbackSim?.let { subscription ->
+                                val operator = detectOperator(subscription)
+                                if (operator != null) {
+                                    add(SmsPollLine(profile, subscription.subscriptionId, operator, true))
+                                } else {
+                                    operatorNeedsSetup = true
+                                }
                             }
                         }
                     }
                 }
 
-                for ((profile, subscriptionId, effectiveOperatorCode) in profileLines) {
+                for (line in profileLines) {
+                    val profile = line.profile
+                    val subscriptionId = line.subscriptionId
+                    val effectiveOperatorCode = line.operatorCode
+                    val claim = try {
+                        api.claim(profile.token, effectiveOperatorCode, line.allowCrossNetworkFallback)
+                    } catch (error: GatewayHttpException) {
+                        if (error.statusCode == 401 || error.statusCode == 403) {
+                            tokenStore.removeProfile(profile.deviceId)
+                            Log.i(TAG, "Removed revoked sender-line credential for device " + profile.deviceId)
+                            continue
+                        }
+                        throw error
+                    }
+
+                    markServerSuccess(preferences)
+                    consecutiveFailures = 0
+                    preferences.consecutiveRelayFailures = 0
+                    idleDelayMs = IDLE_DELAY_MIN_MS
+
+                    if (claim.deviceDisabled) {
+                        disabledLineSeen = true
+                        continue
+                    }
+                    if (claim.gatewayPaused || claim.merchantDisabled) {
+                        servicePaused = true
+                        break
+                    }
+                    if (claim.operatorConflict || claim.operatorUnassigned) {
+                        operatorConflict = true
+                        continue
+                    }
+
+                    val job = claim.job ?: continue
+
+                    // Recheck the exact SIM and permissions immediately before
                     hasEligibleLine = true
                     val claim = try {
                         api.claim(profile.token, effectiveOperatorCode)
@@ -329,7 +383,11 @@ class SmsGatewayService : Service() {
                     publishStatus(
                         preferences,
                         "sending",
-                        "وصل طلب جديد. جارٍ إرسال رابط التتبع من شريحة الشبكة المطابقة..."
+                        if (line.allowCrossNetworkFallback) {
+                            "وصل طلب جديد لشبكة لا تملك خطاً مخصصاً. جارٍ الإرسال من الشريحة الأساسية المتاحة..."
+                        } else {
+                            "وصل طلب جديد. جارٍ إرسال رابط التتبع من خط الشبكة المطابقة..."
+                        }
                     )
 
                     val result = sendSms(job, subscriptionId)
