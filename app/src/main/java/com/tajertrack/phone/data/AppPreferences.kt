@@ -65,6 +65,10 @@ class AppPreferences(context: Context) {
         get() = preferences.getInt(KEY_RELAY_FAILURE_COUNT, 0)
         set(value) = preferences.edit().putInt(KEY_RELAY_FAILURE_COUNT, value.coerceAtLeast(0)).apply()
 
+    var lastSmsDispatchAt: Long
+        get() = preferences.getLong(KEY_LAST_SMS_DISPATCH_AT, 0L)
+        private set(value) = preferences.edit().putLong(KEY_LAST_SMS_DISPATCH_AT, value).apply()
+
     /**
      * Persist a claim before the SMS API can be called. If the process dies in
      * this stage, recovery can prove that Android was never asked to send it.
@@ -86,6 +90,7 @@ class AppPreferences(context: Context) {
         if (preferences.getString(KEY_PENDING_REPORT_JOB_ID, null) != jobId) return false
         return preferences.edit()
             .putString(KEY_PENDING_REPORT_STAGE, STAGE_INVOKING)
+            .putLong(KEY_LAST_SMS_DISPATCH_AT, System.currentTimeMillis())
             .commit()
     }
 
@@ -201,6 +206,7 @@ class AppPreferences(context: Context) {
         private const val KEY_RELAY_STATUS_UPDATED_AT = "relay_status_updated_at"
         private const val KEY_RELAY_LAST_SUCCESSFUL_POLL_AT = "relay_last_successful_poll_at"
         private const val KEY_RELAY_FAILURE_COUNT = "relay_failure_count"
+        private const val KEY_LAST_SMS_DISPATCH_AT = "last_sms_dispatch_at"
         private const val KEY_PENDING_REPORT_JOB_ID = "pending_sms_report_job_id"
         private const val KEY_PENDING_REPORT_DEVICE_ID = "pending_sms_report_device_id"
         private const val KEY_PENDING_REPORT_STATUS = "pending_sms_report_status"
