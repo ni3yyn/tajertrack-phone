@@ -9,6 +9,10 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -1560,12 +1564,28 @@ private fun DeviceManagementPage(
         "mobilis" to "Mobilis",
         "ooredoo" to "Ooredoo"
     )
+    val deviceListScrollState = rememberScrollState()
+    val sizeEnter = expandVertically(
+        expandFrom = Alignment.Top,
+        animationSpec = spring(stiffness = 420f)
+    ) + expandHorizontally(
+        expandFrom = Alignment.End,
+        animationSpec = spring(stiffness = 420f)
+    )
+    val sizeExit = shrinkVertically(
+        shrinkTowards = Alignment.Top,
+        animationSpec = spring(stiffness = 420f)
+    ) + shrinkHorizontally(
+        shrinkTowards = Alignment.End,
+        animationSpec = spring(stiffness = 420f)
+    )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 20.dp)
+            .animateContentSize(animationSpec = spring(stiffness = 420f))
     ) {
         PageIntro(
             number = "03",
@@ -1611,106 +1631,216 @@ private fun DeviceManagementPage(
                 Text(if (loadingSenderDevices) "جارٍ التحديث..." else "تحديث", color = TajerForest, fontSize = 11.sp)
             }
         }
-        if (managerDevicesStatus.isNotBlank()) {
-            Text(managerDevicesStatus, color = TajerMuted, fontSize = 10.sp, lineHeight = 17.sp)
+        AnimatedVisibility(
+            visible = managerDevicesStatus.isNotBlank(),
+            enter = sizeEnter,
+            exit = sizeExit
+        ) {
+            Text(
+                managerDevicesStatus,
+                color = TajerMuted,
+                fontSize = 10.sp,
+                lineHeight = 17.sp,
+                modifier = Modifier.fillMaxWidth().animateContentSize()
+            )
         }
-        if (loadingSenderDevices && senderDevices.isEmpty()) {
-            Spacer(Modifier.height(8.dp))
+        AnimatedVisibility(
+            visible = loadingSenderDevices,
+            enter = sizeEnter,
+            exit = sizeExit
+        ) {
             LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 color = TajerForest,
                 trackColor = TajerSage
             )
         }
-        if (senderDevices.isEmpty() && !loadingSenderDevices) {
-            Spacer(Modifier.height(8.dp))
-            Text("لا توجد خطوط إرسال ظاهرة حالياً.", color = TajerMuted, fontSize = 11.sp)
-        }
-        senderDevices.forEach { device ->
-            Spacer(Modifier.height(10.dp))
+        AnimatedVisibility(
+            visible = senderDevices.isEmpty() && !loadingSenderDevices,
+            enter = sizeEnter,
+            exit = sizeExit
+        ) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).animateContentSize(),
                 color = TajerSurface,
                 border = BorderStroke(1.dp, TajerBorder),
                 shape = RectangleShape
             ) {
-                Column(Modifier.padding(13.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Outlined.CellTower,
+                        contentDescription = null,
+                        tint = TajerMuted,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "لا توجد خطوط إرسال ظاهرة حالياً.",
+                        color = TajerMuted,
+                        fontSize = 11.sp,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+        }
+        AnimatedVisibility(
+            visible = senderDevices.isNotEmpty(),
+            enter = sizeEnter,
+            exit = sizeExit
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 9.dp)
+                    .height(286.dp)
+                    .verticalScroll(deviceListScrollState)
+            ) {
+                senderDevices.forEach { device ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().animateContentSize(
+                            animationSpec = spring(stiffness = 420f)
+                        ),
+                        color = TajerSurface,
+                        border = BorderStroke(1.dp, TajerBorder),
+                        shape = RectangleShape
                     ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                device.displayName,
-                                color = TajerInk,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                when (device.operatorCode) {
-                                    "djezzy" -> "Djezzy"
-                                    "mobilis" -> "Mobilis"
-                                    "ooredoo" -> "Ooredoo"
-                                    else -> "شبكة غير محددة"
-                                } + if (device.isPrimary) " · خط الهاتف الرئيسي" else " · هاتف مدعو",
-                                color = TajerMuted,
-                                fontSize = 10.sp
-                            )
-                        }
-                        Text(
-                            when {
-                                device.revoked -> "ملغى"
-                                !device.enabled -> "موقوف"
-                                device.isOnline -> "متصل الآن"
-                                else -> "غير متصل"
-                            },
-                            color = when {
-                                device.revoked -> TajerMuted
-                                !device.enabled -> Color(0xFF9B563F)
-                                device.isOnline -> TajerForest
-                                else -> TajerMuted
-                            },
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    if (!device.revoked) {
-                        Spacer(Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(13.dp)
+                                .animateContentSize(animationSpec = spring(stiffness = 420f))
                         ) {
-                            OutlinedButton(
-                                onClick = {
-                                    onUpdateManagerDevice(device.deviceId, if (device.enabled) "pause" else "resume")
-                                },
-                                enabled = updatingManagerDeviceId != device.deviceId,
-                                modifier = Modifier.weight(1f).height(40.dp),
-                                shape = RectangleShape,
-                                border = BorderStroke(1.dp, TajerBorder),
-                                contentPadding = PaddingValues(horizontal = 6.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    when {
-                                        updatingManagerDeviceId == device.deviceId -> "جارٍ التحديث..."
-                                        device.enabled -> "إيقاف الخط"
-                                        else -> "استئناف الخط"
-                                    },
-                                    fontSize = 10.sp
-                                )
+                                Column(
+                                    Modifier
+                                        .weight(1f)
+                                        .animateContentSize()
+                                ) {
+                                    Text(
+                                        device.displayName,
+                                        color = TajerInk,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        when (device.operatorCode) {
+                                            "djezzy" -> "Djezzy"
+                                            "mobilis" -> "Mobilis"
+                                            "ooredoo" -> "Ooredoo"
+                                            else -> "شبكة غير محددة"
+                                        } + if (device.isPrimary) " · خط الهاتف الرئيسي" else " · هاتف مدعو",
+                                        color = TajerMuted,
+                                        fontSize = 10.sp,
+                                        lineHeight = 16.sp
+                                    )
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    modifier = Modifier.animateContentSize()
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Box(
+                                            Modifier
+                                                .size(7.dp)
+                                                .background(
+                                                    when {
+                                                        device.revoked -> TajerMuted
+                                                        !device.enabled -> Color(0xFFB66B4F)
+                                                        device.isOnline -> Color(0xFF287A45)
+                                                        else -> TajerMuted.copy(alpha = 0.55f)
+                                                    },
+                                                    RectangleShape
+                                                )
+                                        )
+                                        Text(
+                                            when {
+                                                device.revoked -> "ملغى"
+                                                !device.enabled -> "موقوف"
+                                                device.isOnline -> "متصل الآن"
+                                                else -> "غير متصل"
+                                            },
+                                            color = when {
+                                                device.revoked -> TajerMuted
+                                                !device.enabled -> Color(0xFF9B563F)
+                                                device.isOnline -> TajerForest
+                                                else -> TajerMuted
+                                            },
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
                             }
-                            TextButton(
-                                onClick = { pendingRevokeDevice = device },
-                                enabled = updatingManagerDeviceId != device.deviceId,
-                                modifier = Modifier.height(40.dp)
+                            AnimatedVisibility(
+                                visible = !device.revoked,
+                                enter = sizeEnter,
+                                exit = sizeExit
                             ) {
-                                Text("إلغاء الربط", color = Color(0xFF9B563F), fontSize = 10.sp)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            onUpdateManagerDevice(
+                                                device.deviceId,
+                                                if (device.enabled) "pause" else "resume"
+                                            )
+                                        },
+                                        enabled = updatingManagerDeviceId != device.deviceId,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(40.dp)
+                                            .animateContentSize(),
+                                        shape = RectangleShape,
+                                        border = BorderStroke(1.dp, TajerBorder),
+                                        contentPadding = PaddingValues(horizontal = 6.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = TajerForest
+                                        )
+                                    ) {
+                                        Text(
+                                            when {
+                                                updatingManagerDeviceId == device.deviceId -> "جارٍ التحديث..."
+                                                device.enabled -> "إيقاف الخط"
+                                                else -> "استئناف الخط"
+                                            },
+                                            fontSize = 10.sp,
+                                            maxLines = 1
+                                        )
+                                    }
+                                    TextButton(
+                                        onClick = { pendingRevokeDevice = device },
+                                        enabled = updatingManagerDeviceId != device.deviceId,
+                                        modifier = Modifier.height(40.dp).animateContentSize()
+                                    ) {
+                                        Text(
+                                            "إلغاء الربط",
+                                            color = Color(0xFF9B563F),
+                                            fontSize = 10.sp,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
+                    Spacer(Modifier.height(9.dp))
                 }
             }
         }
@@ -1737,18 +1867,38 @@ private fun DeviceManagementPage(
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp)
+                        .animateContentSize(animationSpec = spring(stiffness = 420f))
                         .clickable { selectedOperator = code },
                     color = if (selected) TajerForest else TajerSurface,
                     border = BorderStroke(1.dp, if (selected) TajerForest else TajerBorder),
                     shape = RectangleShape
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 5.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
                             label,
                             color = if (selected) Color.White else TajerInk,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         )
+                        AnimatedVisibility(
+                            visible = selected,
+                            enter = sizeEnter,
+                            exit = sizeExit
+                        ) {
+                            Row {
+                                Spacer(Modifier.width(5.dp))
+                                Icon(
+                                    Icons.Outlined.Check,
+                                    contentDescription = "محدد",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1757,7 +1907,7 @@ private fun DeviceManagementPage(
         Button(
             onClick = { onCreateInvite(selectedOperator) },
             enabled = !creatingInvite && selectedOperator.isNotBlank(),
-            modifier = Modifier.fillMaxWidth().height(54.dp),
+            modifier = Modifier.fillMaxWidth().height(54.dp).animateContentSize(),
             shape = RectangleShape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = TajerForest,
@@ -1785,17 +1935,26 @@ private fun DeviceManagementPage(
             )
         }
 
-        if (invitationStatus.isNotBlank()) {
-            Spacer(Modifier.height(12.dp))
-            Text(
-                invitationStatus,
-                color = if (invitationUrl.isNotBlank()) TajerForest else TajerMuted,
-                fontSize = 11.sp,
-                lineHeight = 19.sp
-            )
+        AnimatedVisibility(
+            visible = invitationStatus.isNotBlank(),
+            enter = sizeEnter,
+            exit = sizeExit
+        ) {
+            Column(Modifier.fillMaxWidth().padding(top = 12.dp).animateContentSize()) {
+                Text(
+                    invitationStatus,
+                    color = if (invitationUrl.isNotBlank()) TajerForest else TajerMuted,
+                    fontSize = 11.sp,
+                    lineHeight = 19.sp
+                )
+            }
         }
 
-        if (invitationUrl.isNotBlank()) {
+        AnimatedVisibility(
+            visible = invitationUrl.isNotBlank(),
+            enter = sizeEnter,
+            exit = sizeExit
+        ) {
             Spacer(Modifier.height(22.dp))
             HorizontalDivider(color = TajerBorder)
             Spacer(Modifier.height(17.dp))
@@ -1895,41 +2054,64 @@ private fun DeviceManagementPage(
     }
 
     pendingRevokeDevice?.let { device ->
-        AlertDialog(
-            onDismissRequest = { pendingRevokeDevice = null },
-            title = {
-                Text("إلغاء ربط الهاتف", color = TajerInk, fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Text(
-                    "لن يستطيع هذا الهاتف إرسال رسائل التتبع بعد الإلغاء. يمكنك ربط هاتف آخر بالشبكة نفسها بدعوة جديدة.",
-                    color = TajerMuted,
-                    fontSize = 12.sp,
-                    lineHeight = 20.sp
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingRevokeDevice = null
-                        onUpdateManagerDevice(device.deviceId, "revoke")
+        Dialog(onDismissRequest = { pendingRevokeDevice = null }) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(animationSpec = spring(stiffness = 420f)),
+                color = TajerSurface,
+                border = BorderStroke(1.dp, TajerBorder),
+                shape = RectangleShape
+            ) {
+                Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                    Text(
+                        "إلغاء ربط الهاتف",
+                        color = TajerInk,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "لن يستطيع هذا الهاتف إرسال رسائل التتبع بعد الإلغاء. يمكنك ربط هاتف آخر بالشبكة نفسها بدعوة جديدة.",
+                        color = TajerMuted,
+                        fontSize = 12.sp,
+                        lineHeight = 20.sp
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = { pendingRevokeDevice = null },
+                            modifier = Modifier.weight(1f).height(44.dp).animateContentSize()
+                        ) {
+                            Text("إبقاء الهاتف", color = TajerForest, fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = {
+                                pendingRevokeDevice = null
+                                onUpdateManagerDevice(device.deviceId, "revoke")
+                            },
+                            modifier = Modifier.weight(1f).height(44.dp).animateContentSize(),
+                            shape = RectangleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF9B563F),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text("إلغاء الربط", fontSize = 12.sp)
+                        }
                     }
-                ) {
-                    Text("إلغاء الربط", color = Color(0xFF9B563F))
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingRevokeDevice = null }) {
-                    Text("إبقاء الهاتف", color = TajerForest)
-                }
-            },
-            shape = RectangleShape,
-            containerColor = TajerSurface
-        )
+            }
+        }
     }
 }
 
 @Composable
+private fun GuidePage()@Composable
 private fun GuidePage() {
     val questions = listOf(
         "ما وظيفة تاجر تراك فون؟" to
