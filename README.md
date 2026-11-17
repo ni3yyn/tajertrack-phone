@@ -11,7 +11,7 @@ Native Android companion for sending the single tracking-link SMS created for ea
 3. In TajerTrack → Settings → SMS sender lines, choose Djezzy, Mobilis, or Ooredoo and create an invitation.
 4. Open/share that one-time invitation on the intended phone. It displays the store and carrier purpose; the invited person approves without signing in as the merchant or receiving the merchant's password.
 5. Allow SMS, SIM access, and notification permissions requested by Android.
-6. Choose the primary SIM. On dual-SIM phones, choose the secondary SIM and explicitly enable it only when it should also be used.
+6. On a single-SIM phone, the only active SIM is selected automatically. On a dual-SIM phone, open the SIM selector and enable either one or both. Enabled SIM names remain visible when the selector is closed.
 7. Start the relay and keep the phone online.
 
 The merchant can pair up to three sender lines, one per carrier. They can all be installed on one multi-SIM Android phone, or distributed across separate phones belonging to relatives. Each line receives its own credential and can be paused or revoked independently from TajerTrack Settings.
