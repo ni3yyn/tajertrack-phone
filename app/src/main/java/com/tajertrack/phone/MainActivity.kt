@@ -252,7 +252,16 @@ class MainActivity : ComponentActivity() {
 
     private fun openPairingPage() {
         val redirectUri = Uri.encode("tajertrack-sms://manager-pair")
-        val url = "${BuildConfig.TAJERTRACK_BASE_URL}/mobile/sms-gateway/connect?redirect_uri=$redirectUri"
+        val managerDeviceId = tokenStore.managerDeviceId()
+        val currentManagerQuery = if (
+            tokenStore.hasManagerCredential() &&
+            managerDeviceId.matches(Regex("[A-Za-z0-9_-]{8,80}"))
+        ) {
+            "&manager_device_id=${Uri.encode(managerDeviceId)}"
+        } else {
+            ""
+        }
+        val url = "${BuildConfig.TAJERTRACK_BASE_URL}/mobile/sms-gateway/connect?redirect_uri=$redirectUri$currentManagerQuery"
         runCatching {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }.onFailure {
