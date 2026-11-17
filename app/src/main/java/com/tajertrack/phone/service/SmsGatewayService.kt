@@ -499,11 +499,23 @@ class SmsGatewayService : Service() {
 
     private fun publishReportedSmsStatus(preferences: AppPreferences, report: PendingSmsReport) {
         val message = when (report.status) {
-            "submitted" -> "تم تسجيل قبول Android لرسالة التتبع لدى تاجر تراك. هذا لا يعني تأكيد وصولها إلى العميل."
-            "failed" -> "تعذّر إرسال الرسالة: " + (report.error ?: "سبب غير محدد.") + " تم تسجيل النتيجة لدى تاجر تراك."
-            else -> "تم تسجيل أن نتيجة الرسالة غير مؤكدة. لن يعيد الهاتف إرسالها تلقائياً لتجنب التكرار."
+            "submitted" ->
+                "أكد Android قبول رسالة رابط التتبع للإرسال. هذا لا يثبت وصولها إلى هاتف العميل."
+            "failed" -> if (report.retryable) {
+                "تعذر الإرسال مؤقتاً: ${report.error ?: "سبب غير محدد."} بقي الطلب في قائمة الانتظار وسيُعاد بعد مهلة متزايدة."
+            } else {
+                "تعذر إرسال الرسالة: ${report.error ?: "سبب غير محدد."} يلزم تصحيح السبب قبل إعادة المحاولة."
+            }
+            "not_sent" ->
+                "لم تُرسل الرسالة؛ أُعيد الطلب إلى قائمة الانتظار دون احتساب محاولة إرسال."
+            else ->
+                "نتيجة الإرسال غير مؤكدة. حُفظت الحالة للمراجعة ولن يكرر الهاتف الرسالة تلقائياً."
         }
-        publishStatus(preferences, "connected", message)
+        publishStatus(
+            preferences,
+            if (report.status == "unknown") "attention" else "connected",
+            message
+        )
     }
 
     private fun publishStatus(preferences: AppPreferences, state: String, message: String) {
