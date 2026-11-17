@@ -2104,8 +2104,12 @@ private val smsLogFilters = listOf(
     "all" to "الكل",
     "pending" to "قيد الانتظار",
     "submitted" to "تم الإرسال",
+    "delivered" to "تم التسليم",
+    "awaiting_delivery" to "بانتظار التسليم",
+    "delivery_failed" to "تعذر التسليم",
+    "delivery_unknown" to "تسليم غير مؤكد",
     "failed" to "فشل / لم يُرسل",
-    "unknown" to "غير مؤكدة"
+    "unknown" to "نتيجة الإرسال غير مؤكدة"
 )
 
 @Composable
@@ -2158,7 +2162,7 @@ private fun SmsMessageLogPage(
                 )
                 Spacer(Modifier.width(9.dp))
                 Text(
-                    "تم الإرسال تعني أن Android قبل الرسالة للإرسال، ولا تعني بالضرورة وصولها إلى هاتف العميل.",
+                    "تظهر «تم التسليم» فقط عند استلام تقرير إيجابي من شبكة الهاتف. قد لا توفر بعض الشبكات تقريراً لكل رسالة.",
                     color = TajerForestDeep,
                     fontSize = 10.sp,
                     lineHeight = 18.sp,
@@ -2200,26 +2204,20 @@ private fun SmsMessageLogPage(
         }
         Spacer(Modifier.height(12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                smsLogFilters.take(3).forEach { (key, label) ->
-                    SmsLogFilterButton(
-                        label = label,
-                        selected = selectedFilter == key,
-                        modifier = Modifier.weight(1f),
-                        onClick = { onFilterChange(key) }
-                    )
+            smsLogFilters.chunked(3).forEach { filterRow ->
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    filterRow.forEach { (key, label) ->
+                        SmsLogFilterButton(
+                            label = label,
+                            selected = selectedFilter == key,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onFilterChange(key) }
+                        )
+                    }
+                    repeat(3 - filterRow.size) {
+                        Spacer(Modifier.weight(1f))
+                    }
                 }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                smsLogFilters.drop(3).forEach { (key, label) ->
-                    SmsLogFilterButton(
-                        label = label,
-                        selected = selectedFilter == key,
-                        modifier = Modifier.weight(1f),
-                        onClick = { onFilterChange(key) }
-                    )
-                }
-                Spacer(Modifier.weight(1f))
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -2449,7 +2447,7 @@ private fun SmsLogFilterButton(
 
 @Composable
 private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
-    val statusLabel = when (message.status) {
+    val sendStatusLabel = when (message.status) {
         "pending", "retry" -> "قيد الانتظار"
         "processing" -> "جارٍ الإرسال"
         "submitted" -> "تم الإرسال"
@@ -2459,18 +2457,41 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
         "failed", "dead_letter" -> "فشل الإرسال"
         else -> "حالة غير معروفة"
     }
-    val statusColor = when (message.status) {
-        "submitted" -> Color(0xFF287A45)
-        "pending", "retry", "processing" -> Color(0xFF9A6A18)
+    val statusLabel = when (message.deliveryStatus) {
+        "delivered" -> "تم التسليم"
+        "pending" -> "بانتظار تقرير التسليم"
+        "failed" -> "تعذر التسليم"
+        "unknown" -> "تسليم غير مؤكد"
+        else -> sendStatusLabel
+    }
+    val statusColor = when (message.deliveryStatus) {
+        "delivered" -> Color(0xFF287A45)
+        "pending" -> Color(0xFF9A6A18)
         "unknown" -> Color(0xFFB56A35)
-        else -> Color(0xFFB34B43)
+        "failed" -> Color(0xFFB34B43)
+        else -> when (message.status) {
+            "submitted" -> Color(0xFF287A45)
+            "pending", "retry", "processing" -> Color(0xFF9A6A18)
+            "unknown" -> Color(0xFFB56A35)
+            else -> Color(0xFFB34B43)
+        }
     }
-    val statusBackground = when (message.status) {
-        "submitted" -> Color(0xFFE5F0E6)
-        "pending", "retry", "processing" -> Color(0xFFF5EEDC)
+    val statusBackground = when (message.deliveryStatus) {
+        "delivered" -> Color(0xFFE5F0E6)
+        "pending" -> Color(0xFFF5EEDC)
         "unknown" -> Color(0xFFF7EADF)
-        else -> Color(0xFFF7E7E5)
+        "failed" -> Color(0xFFF7E7E5)
+        else -> when (message.status) {
+            "submitted" -> Color(0xFFE5F0E6)
+            "pending", "retry", "processing" -> Color(0xFFF5EEDC)
+            "unknown" -> Color(0xFFF7EADF)
+            else -> Color(0xFFF7E7E5)
+        }
     }
+    val detailMessage = listOfNotNull(
+        message.deliveryError?.takeIf(String::isNotBlank),
+        message.errorMessage?.takeIf(String::isNotBlank)
+    ).distinct().joinToString("\n")
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -2531,7 +2552,14 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
                     )
                 }
             }
-            Spacer(Modifier.height(11.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "حالة الإرسال: $sendStatusLabel",
+                color = TajerMuted,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(9.dp))
             HorizontalDivider(color = TajerBorder)
             Spacer(Modifier.height(11.dp))
             Row(
@@ -2575,7 +2603,7 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
                     fontSize = 9.sp
                 )
             }
-            if (!message.errorMessage.isNullOrBlank()) {
+            if (detailMessage.isNotBlank()) {
                 Spacer(Modifier.height(10.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -2586,7 +2614,7 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
                         Text("تفاصيل النتيجة", color = Color(0xFF9D4D32), fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(3.dp))
                         Text(
-                            message.errorMessage,
+                            detailMessage,
                             color = Color(0xFF78452F),
                             fontSize = 10.sp,
                             lineHeight = 17.sp
