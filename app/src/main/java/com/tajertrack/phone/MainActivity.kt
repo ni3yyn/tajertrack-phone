@@ -330,7 +330,7 @@ class MainActivity : ComponentActivity() {
                 "ooredoo" -> "Ooredoo"
                 else -> carrier
             }
-            SimChoice(subscription.subscriptionId, "$operatorLabel — $carrier — SIM $slot", operatorCode)
+            SimChoice(subscription.subscriptionId, "$operatorLabel — SIM $slot", operatorCode)
         }
 
         if (simChoices.size == 1) {
