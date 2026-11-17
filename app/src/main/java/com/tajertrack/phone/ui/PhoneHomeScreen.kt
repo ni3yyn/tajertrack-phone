@@ -45,6 +45,7 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Sms
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.AlertDialog
@@ -89,13 +90,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tajertrack.phone.SimChoice
 import com.tajertrack.phone.data.ManagerSenderDevice
+import com.tajertrack.phone.data.SmsMessageLogEntry
 import kotlinx.coroutines.delay
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 private enum class PhoneDestination {
     Home,
     Connection,
     Devices,
+    SmsLog,
     Sending,
     Guide,
     About
@@ -117,6 +124,11 @@ fun PhoneHomeScreen(
     managerDevicesStatus: String,
     loadingSenderDevices: Boolean,
     updatingManagerDeviceId: String,
+    smsMessages: List<SmsMessageLogEntry>,
+    smsMessagesStatus: String,
+    loadingSmsMessages: Boolean,
+    hasMoreSmsMessages: Boolean,
+    smsMessageFilter: String,
     statusMessage: String,
     pairing: Boolean,
     simSetupUnlocked: Boolean,
@@ -144,7 +156,10 @@ fun PhoneHomeScreen(
     onCopyDownloadLink: () -> Unit,
     onCopyInviteMessage: () -> Unit,
     onRefreshManagerDevices: () -> Unit,
-    onUpdateManagerDevice: (String, String) -> Unit
+    onUpdateManagerDevice: (String, String) -> Unit,
+    onRefreshManagerSmsMessages: () -> Unit,
+    onLoadMoreManagerSmsMessages: () -> Unit,
+    onFilterManagerSmsMessages: (String) -> Unit
 ) {
     CompositionDirectionRtl {
         val drawerState = androidx.compose.material3.rememberDrawerState(
@@ -162,6 +177,7 @@ fun PhoneHomeScreen(
             PhoneDestination.Home -> "الرئيسية"
             PhoneDestination.Connection -> "ربط المتجر"
             PhoneDestination.Devices -> "إدارة أجهزة الإرسال"
+            PhoneDestination.SmsLog -> "سجل الرسائل"
             PhoneDestination.Sending -> "إرسال الرسائل"
             PhoneDestination.Guide -> "الشروط والأسئلة"
             PhoneDestination.About -> "حول التطبيق"
@@ -264,6 +280,7 @@ fun PhoneHomeScreen(
                                     storeName = storeName,
                                     onOpenConnection = { destination = PhoneDestination.Connection },
                                     onOpenDevices = { destination = PhoneDestination.Devices },
+                                    onOpenSmsLog = { destination = PhoneDestination.SmsLog },
                                     onOpenSending = { destination = PhoneDestination.Sending }
                                 )
                                 PhoneDestination.Connection -> ConnectionPage(
@@ -291,6 +308,23 @@ fun PhoneHomeScreen(
                                     onCopyInvite = onCopyInvite,
                                     onCopyDownloadLink = onCopyDownloadLink,
                                     onCopyInviteMessage = onCopyInviteMessage
+                                ) else ConnectionPage(
+                                    connected = connected,
+                                    storeName = storeName,
+                                    pairing = pairing,
+                                    statusMessage = statusMessage,
+                                    onConnect = onConnect,
+                                    onContinue = { destination = PhoneDestination.Sending }
+                                )
+                                PhoneDestination.SmsLog -> if (managerDevice) SmsMessageLogPage(
+                                    messages = smsMessages,
+                                    statusMessage = smsMessagesStatus,
+                                    loading = loadingSmsMessages,
+                                    hasMore = hasMoreSmsMessages,
+                                    selectedFilter = smsMessageFilter,
+                                    onRefresh = onRefreshManagerSmsMessages,
+                                    onLoadMore = onLoadMoreManagerSmsMessages,
+                                    onFilterChange = onFilterManagerSmsMessages
                                 ) else ConnectionPage(
                                     connected = connected,
                                     storeName = storeName,
@@ -421,6 +455,12 @@ private fun PhoneNavigationDrawer(
                 icon = Icons.Outlined.Link,
                 selected = destination == PhoneDestination.Devices,
                 onClick = { onNavigate(PhoneDestination.Devices) }
+            )
+            DrawerItem(
+                title = "سجل الرسائل",
+                icon = Icons.Outlined.Sms,
+                selected = destination == PhoneDestination.SmsLog,
+                onClick = { onNavigate(PhoneDestination.SmsLog) }
             )
         }
         DrawerItem(
@@ -595,7 +635,8 @@ private fun HomePage(
     storeName: String,
     onOpenConnection: () -> Unit,
     onOpenSending: () -> Unit,
-    onOpenDevices: () -> Unit
+    onOpenDevices: () -> Unit,
+    onOpenSmsLog: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -695,6 +736,13 @@ private fun HomePage(
                     title = "إدارة أجهزة الإرسال",
                     detail = "إنشاء دعوات وربط هواتف أخرى بخطوط الشبكات",
                     onClick = onOpenDevices
+                )
+                Spacer(Modifier.height(10.dp))
+                NativeActionRow(
+                    icon = Icons.Outlined.Sms,
+                    title = "سجل الرسائل",
+                    detail = "متابعة رسائل التتبع من جميع أجهزة الإرسال",
+                    onClick = onOpenSmsLog
                 )
             }
             Spacer(Modifier.height(10.dp))
@@ -2036,4 +2084,400 @@ private fun AboutPage() {
             textAlign = TextAlign.Center
         )
     }
+}
+
+private val smsLogFilters = listOf(
+    "all" to "الكل",
+    "pending" to "قيد الانتظار",
+    "submitted" to "تم الإرسال",
+    "failed" to "فشل / لم يُرسل",
+    "unknown" to "غير مؤكدة"
+)
+
+@Composable
+private fun SmsMessageLogPage(
+    messages: List<SmsMessageLogEntry>,
+    statusMessage: String,
+    loading: Boolean,
+    hasMore: Boolean,
+    selectedFilter: String,
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit,
+    onFilterChange: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 20.dp)
+    ) {
+        PageIntro(
+            number = "04",
+            title = "سجل الرسائل",
+            subtitle = "سجل موحّد لرسائل روابط التتبع من جميع أجهزة الإرسال المرتبطة بمتجرك."
+        )
+        Spacer(Modifier.height(16.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = TajerSage,
+            shape = RectangleShape
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Outlined.Info,
+                    contentDescription = null,
+                    tint = TajerForest,
+                    modifier = Modifier.size(19.dp)
+                )
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    "تم الإرسال تعني أن Android قبل الرسالة للإرسال، ولا تعني بالضرورة وصولها إلى هاتف العميل.",
+                    color = TajerForestDeep,
+                    fontSize = 10.sp,
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            SectionHeading("الرسائل", "تظهر أحدث النتائج أولاً")
+            OutlinedButton(
+                onClick = onRefresh,
+                enabled = !loading,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                modifier = Modifier.height(38.dp),
+                shape = RectangleShape,
+                border = BorderStroke(1.dp, TajerBorder),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = TajerForest,
+                    disabledContentColor = TajerMuted
+                )
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(15.dp),
+                        color = TajerForest,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+                Text("تحديث", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                smsLogFilters.take(3).forEach { (key, label) ->
+                    SmsLogFilterButton(
+                        label = label,
+                        selected = selectedFilter == key,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onFilterChange(key) }
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                smsLogFilters.drop(3).forEach { (key, label) ->
+                    SmsLogFilterButton(
+                        label = label,
+                        selected = selectedFilter == key,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onFilterChange(key) }
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+            }
+        }
+        Spacer(Modifier.height(15.dp))
+
+        if (loading && messages.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 42.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = TajerForest, strokeWidth = 2.dp)
+                    Spacer(Modifier.height(12.dp))
+                    Text("جارٍ تحميل سجل الرسائل...", color = TajerMuted, fontSize = 11.sp)
+                }
+            }
+        } else if (messages.isEmpty()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = TajerSurface,
+                border = BorderStroke(1.dp, TajerBorder),
+                shape = RectangleShape
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 25.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        Icons.Outlined.Sms,
+                        contentDescription = null,
+                        tint = TajerMuted,
+                        modifier = Modifier.size(27.dp)
+                    )
+                    Spacer(Modifier.height(9.dp))
+                    Text(
+                        if (statusMessage.isNotBlank()) statusMessage else "لا توجد رسائل في هذا التصنيف.",
+                        color = TajerInk,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        "ستظهر هنا رسائل روابط التتبع التي تعالجها هواتف الإرسال.",
+                        color = TajerMuted,
+                        fontSize = 10.sp,
+                        lineHeight = 17.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            if (statusMessage.isNotBlank()) {
+                Text(
+                    statusMessage,
+                    color = TajerClay,
+                    fontSize = 10.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(bottom = 9.dp)
+                )
+            }
+            messages.forEach { message ->
+                SmsMessageLogCard(message)
+                Spacer(Modifier.height(9.dp))
+            }
+            if (hasMore) {
+                Button(
+                    onClick = onLoadMore,
+                    enabled = !loading,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RectangleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TajerSage,
+                        contentColor = TajerForestDeep,
+                        disabledContainerColor = TajerSage,
+                        disabledContentColor = TajerMuted
+                    )
+                ) {
+                    if (loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = TajerForest,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("عرض رسائل أقدم", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(22.dp))
+    }
+}
+
+@Composable
+private fun SmsLogFilterButton(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier.height(38.dp).clickable(onClick = onClick),
+        color = if (selected) TajerForest else TajerSurface,
+        border = BorderStroke(1.dp, if (selected) TajerForest else TajerBorder),
+        shape = RectangleShape
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                label,
+                color = if (selected) Color.White else TajerInk,
+                fontSize = 10.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
+    val statusLabel = when (message.status) {
+        "pending", "retry" -> "قيد الانتظار"
+        "processing" -> "جارٍ الإرسال"
+        "submitted" -> "تم الإرسال"
+        "unknown" -> "غير مؤكدة"
+        "expired" -> "انتهت المهلة"
+        "skipped" -> "لم يُرسل"
+        "failed", "dead_letter" -> "فشل الإرسال"
+        else -> "حالة غير معروفة"
+    }
+    val statusColor = when (message.status) {
+        "submitted" -> Color(0xFF287A45)
+        "pending", "retry", "processing" -> Color(0xFF9A6A18)
+        "unknown" -> Color(0xFFB56A35)
+        else -> Color(0xFFB34B43)
+    }
+    val statusBackground = when (message.status) {
+        "submitted" -> Color(0xFFE5F0E6)
+        "pending", "retry", "processing" -> Color(0xFFF5EEDC)
+        "unknown" -> Color(0xFFF7EADF)
+        else -> Color(0xFFF7E7E5)
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = TajerSurface,
+        border = BorderStroke(1.dp, TajerBorder),
+        shape = RectangleShape
+    ) {
+        Column(Modifier.padding(15.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        message.customerName.ifBlank { "عميل" },
+                        color = TajerInk,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        message.customerPhone.ifBlank { "رقم العميل غير متاح" },
+                        color = TajerMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Surface(color = statusBackground, shape = RectangleShape) {
+                    Text(
+                        statusLabel,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        color = statusColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            Spacer(Modifier.height(11.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "رابط تتبع الطلب",
+                    color = TajerForest,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (message.orderReference.isNotBlank()) {
+                    Text(
+                        "الطلب #${message.orderReference}",
+                        color = TajerMuted,
+                        fontSize = 10.sp,
+                        maxLines = 1
+                    )
+                }
+            }
+            Spacer(Modifier.height(11.dp))
+            HorizontalDivider(color = TajerBorder)
+            Spacer(Modifier.height(11.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(message.eventLabel, color = TajerMuted, fontSize = 9.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        formatSmsLogTimestamp(message.eventAt ?: message.queuedAt),
+                        color = TajerInk,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("جهاز الإرسال", color = TajerMuted, fontSize = 9.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        message.senderDeviceName ?: "بانتظار جهاز الإرسال",
+                        color = TajerInk,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.End,
+                        maxLines = 1
+                    )
+                    val operatorLabel = smsOperatorLabel(message.operatorCode)
+                    if (operatorLabel.isNotBlank()) {
+                        Text(operatorLabel, color = TajerMuted, fontSize = 9.sp)
+                    }
+                }
+            }
+            if (message.attemptCount > 0) {
+                Spacer(Modifier.height(9.dp))
+                Text(
+                    "عدد محاولات المعالجة: ${message.attemptCount}",
+                    color = TajerMuted,
+                    fontSize = 9.sp
+                )
+            }
+            if (!message.errorMessage.isNullOrBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFFFF5EF),
+                    shape = RectangleShape
+                ) {
+                    Column(Modifier.padding(10.dp)) {
+                        Text("تفاصيل النتيجة", color = Color(0xFF9D4D32), fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            message.errorMessage,
+                            color = Color(0xFF78452F),
+                            fontSize = 10.sp,
+                            lineHeight = 17.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun smsOperatorLabel(operatorCode: String?): String = when (operatorCode) {
+    "djezzy" -> "Djezzy"
+    "mobilis" -> "Mobilis"
+    "ooredoo" -> "Ooredoo"
+    else -> ""
+}
+
+private fun formatSmsLogTimestamp(value: String?): String {
+    if (value.isNullOrBlank()) return "لم تُسجّل محاولة بعد"
+    return runCatching {
+        OffsetDateTime.parse(value)
+            .atZoneSameInstant(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("dd/MM/yyyy · HH:mm", Locale("ar", "DZ")))
+    }.getOrDefault(value)
 }
