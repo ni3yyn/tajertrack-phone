@@ -64,6 +64,8 @@ class MainActivity : ComponentActivity() {
     private var hasMoreManagerSmsMessages by mutableStateOf(false)
     private var managerSmsMessagesOffset by mutableStateOf(0)
     private var managerSmsMessagesFilter by mutableStateOf("all")
+    private var managerSmsSearchQuery by mutableStateOf("")
+    private var managerSmsDeviceFilter by mutableStateOf("")
     private var statusMessage by mutableStateOf("")
     private var simChoices by mutableStateOf(emptyList<SimChoice>())
     private var selectedSimId by mutableStateOf(-1)
@@ -134,6 +136,8 @@ class MainActivity : ComponentActivity() {
                     loadingSmsMessages = isLoadingManagerSmsMessages,
                     hasMoreSmsMessages = hasMoreManagerSmsMessages,
                     smsMessageFilter = managerSmsMessagesFilter,
+                    smsSearchQuery = managerSmsSearchQuery,
+                    smsDeviceFilter = managerSmsDeviceFilter,
                     statusMessage = statusMessage,
                     pairing = isPairing,
                     simSetupUnlocked = simSetupUnlocked,
@@ -164,7 +168,9 @@ class MainActivity : ComponentActivity() {
                     onUpdateManagerDevice = ::updateManagerDevice,
                     onRefreshManagerSmsMessages = { loadManagerSmsMessages(reset = true) },
                     onLoadMoreManagerSmsMessages = { loadManagerSmsMessages(reset = false) },
-                    onFilterManagerSmsMessages = ::filterManagerSmsMessages
+                    onFilterManagerSmsMessages = ::filterManagerSmsMessages,
+                    onSearchManagerSmsMessages = ::searchManagerSmsMessages,
+                    onFilterManagerSmsDevice = ::filterManagerSmsDevice
                 )
             }
         }
@@ -745,10 +751,35 @@ class MainActivity : ComponentActivity() {
         if (isLoadingManagerSmsMessages || managerSmsMessagesFilter == filter) return
 
         managerSmsMessagesFilter = filter
+        resetManagerSmsMessages()
+        loadManagerSmsMessages(reset = true)
+    }
+
+    private fun searchManagerSmsMessages(query: String) {
+        if (isLoadingManagerSmsMessages) return
+        val safeQuery = query.trim().take(80)
+        if (managerSmsSearchQuery == safeQuery) {
+            loadManagerSmsMessages(reset = true)
+            return
+        }
+        managerSmsSearchQuery = safeQuery
+        resetManagerSmsMessages()
+        loadManagerSmsMessages(reset = true)
+    }
+
+    private fun filterManagerSmsDevice(deviceId: String) {
+        if (isLoadingManagerSmsMessages) return
+        val safeDeviceId = deviceId.takeIf { it.isBlank() || it.matches(Regex("^[A-Za-z0-9_-]{8,100}$")) }.orEmpty()
+        if (managerSmsDeviceFilter == safeDeviceId) return
+        managerSmsDeviceFilter = safeDeviceId
+        resetManagerSmsMessages()
+        loadManagerSmsMessages(reset = true)
+    }
+
+    private fun resetManagerSmsMessages() {
         managerSmsMessages = emptyList()
         managerSmsMessagesOffset = 0
         hasMoreManagerSmsMessages = false
-        loadManagerSmsMessages(reset = true, statusFilter = filter)
     }
 
     private fun loadManagerSmsMessages(
@@ -774,7 +805,9 @@ class MainActivity : ComponentActivity() {
                 val page = ApiClient().listManagerSmsMessages(
                     managerToken = managerToken,
                     offset = requestedOffset,
-                    statusFilter = statusFilter
+                    statusFilter = statusFilter,
+                    searchQuery = managerSmsSearchQuery,
+                    deviceId = managerSmsDeviceFilter
                 )
                 managerSmsMessages = if (reset) {
                     page.messages
