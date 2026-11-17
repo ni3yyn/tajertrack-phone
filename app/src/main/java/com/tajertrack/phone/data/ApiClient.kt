@@ -136,7 +136,7 @@ class ApiClient {
     ): SmsMessageLogPage = withContext(Dispatchers.IO) {
         val safeOffset = offset.coerceIn(0, 100_000)
         val safeFilter = statusFilter.takeIf {
-            it in setOf("all", "pending", "submitted", "failed", "unknown")
+            it in setOf("all", "pending", "submitted", "failed", "unknown", "delivered", "awaiting_delivery", "delivery_failed", "delivery_unknown")
         } ?: "all"
         val encodedSearch = URLEncoder.encode(searchQuery.trim().take(80), "UTF-8")
         val encodedDeviceId = URLEncoder.encode(deviceId.take(100), "UTF-8")
