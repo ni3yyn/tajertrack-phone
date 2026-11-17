@@ -7,11 +7,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
@@ -271,20 +267,13 @@ fun PhoneHomeScreen(
                             targetState = destination,
                             label = "native-page-transition",
                             transitionSpec = {
-                                (expandVertically(
+                                expandVertically(
                                     expandFrom = Alignment.CenterVertically,
-                                    animationSpec = tween(240)
-                                ) + expandHorizontally(
-                                    expandFrom = Alignment.End,
-                                    animationSpec = tween(240)
-                                )) togetherWith
-                                    (shrinkVertically(
-                                        shrinkTowards = Alignment.CenterVertically,
-                                        animationSpec = tween(180)
-                                    ) + shrinkHorizontally(
-                                        shrinkTowards = Alignment.Start,
-                                        animationSpec = tween(180)
-                                    ))
+                                    animationSpec = tween(190)
+                                ) togetherWith shrinkVertically(
+                                    shrinkTowards = Alignment.CenterVertically,
+                                    animationSpec = tween(150)
+                                )
                             }
                         ) { target ->
                             when (target) {
@@ -403,7 +392,10 @@ fun PhoneHomeScreen(
             }
             AnimatedVisibility(
                 visible = splashVisible,
-                exit = fadeOut(animationSpec = tween(380)),
+                exit = shrinkVertically(
+                    shrinkTowards = Alignment.Bottom,
+                    animationSpec = tween(220)
+                ),
                 label = "brand-splash"
             ) {
                 PhoneSplashScreen()
@@ -833,7 +825,11 @@ private fun ConnectionPage(
         PageIntro(
             number = "01",
             title = if (connected) "متجرك مرتبط" else "اربط متجرك",
-            subtitle = "اربط هذا الهاتف بحسابك في تاجر تراك مرة واحدة."
+            subtitle = if (connected) {
+                "هذا الهاتف مرتبط بحساب متجرك. يمكنك متابعة إعداد إرسال الرسائل."
+            } else {
+                "اربط هذا الهاتف بحسابك في تاجر تراك مرة واحدة."
+            }
         )
         Spacer(Modifier.height(22.dp))
         Surface(
@@ -948,17 +944,31 @@ private fun ConnectionPage(
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Text(
-            "سيُفتح موقع تاجر تراك في المتصفح. سجّل الدخول ووافق على ربط هذا الهاتف، ثم ارجع إلى التطبيق.",
-            color = TajerMuted,
-            fontSize = 11.sp,
-            lineHeight = 20.sp
-        )
+        AnimatedVisibility(
+            visible = !connected,
+            enter = expandVertically(
+                expandFrom = Alignment.Top,
+                animationSpec = tween(180)
+            ),
+            exit = shrinkVertically(
+                shrinkTowards = Alignment.Top,
+                animationSpec = tween(150)
+            )
+        ) {
+            Column {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "سيُفتح موقع تاجر تراك في المتصفح. سجّل الدخول ووافق على ربط هذا الهاتف، ثم ارجع إلى التطبيق.",
+                    color = TajerMuted,
+                    fontSize = 11.sp,
+                    lineHeight = 20.sp
+                )
+            }
+        }
         AnimatedVisibility(
             visible = statusMessage.isNotBlank(),
-            enter = fadeIn(tween(180)) + androidx.compose.animation.expandVertically(tween(180)),
-            exit = fadeOut(tween(120)) + androidx.compose.animation.shrinkVertically(tween(120))
+            enter = expandVertically(tween(180)),
+            exit = shrinkVertically(tween(150))
         ) {
             Column {
                 Spacer(Modifier.height(16.dp))
@@ -1040,9 +1050,7 @@ private fun SendingPage(
             ) {
                 Column(
                     Modifier
-                        .animateContentSize(
-                            animationSpec = spring(dampingRatio = 0.86f, stiffness = 320f)
-                        )
+                        
                         .padding(18.dp)
                 ) {
                     Text("المتجر المرتبط", fontSize = 10.sp, color = TajerMuted)
@@ -1075,15 +1083,13 @@ private fun SendingPage(
                     )
                     AnimatedVisibility(
                         visible = simSetupUnlocked,
-                        enter = fadeIn(tween(220)) + androidx.compose.animation.expandVertically(tween(280)),
-                        exit = fadeOut(tween(140)) + androidx.compose.animation.shrinkVertically(tween(220))
+                        enter = expandVertically(tween(180)),
+                        exit = shrinkVertically(tween(150))
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateContentSize(
-                                    animationSpec = spring(dampingRatio = 0.86f, stiffness = 320f)
-                                )
+                                
                         ) {
                             Spacer(Modifier.height(14.dp))
                             if (simChoices.isNotEmpty()) {
@@ -1143,15 +1149,13 @@ private fun SendingPage(
 
             AnimatedVisibility(
                 visible = simSetupUnlocked && simChoices.isNotEmpty() && selectedSimId >= 0,
-                enter = fadeIn(tween(180)) + androidx.compose.animation.expandVertically(tween(240)),
-                exit = fadeOut(tween(120)) + androidx.compose.animation.shrinkVertically(tween(180))
+                enter = expandVertically(tween(180)),
+                exit = shrinkVertically(tween(150))
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .animateContentSize(
-                            animationSpec = spring(dampingRatio = 0.88f, stiffness = 340f)
-                        )
+                        
                 ) {
                     Spacer(Modifier.height(11.dp))
                     OutlinedButton(
@@ -1306,8 +1310,8 @@ private fun SimPicker(
         }
         AnimatedVisibility(
             visible = expanded && sims.isNotEmpty(),
-            enter = fadeIn(tween(140)) + androidx.compose.animation.expandVertically(tween(180)),
-            exit = fadeOut(tween(100)) + androidx.compose.animation.shrinkVertically(tween(150))
+            enter = expandVertically(tween(180)),
+            exit = shrinkVertically(tween(150))
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().background(TajerSurface).border(1.dp, TajerBorder, RectangleShape)
@@ -1566,7 +1570,7 @@ private fun DeviceManagementPage(
     var confirmRevokeAfterDismiss by remember { mutableStateOf(false) }
     LaunchedEffect(showRevokeDialog, pendingRevokeDevice?.deviceId) {
         if (!showRevokeDialog && pendingRevokeDevice != null) {
-            delay(420)
+            delay(210)
             val target = pendingRevokeDevice
             pendingRevokeDevice = null
             if (confirmRevokeAfterDismiss && target != null) {
@@ -1589,24 +1593,18 @@ private fun DeviceManagementPage(
         if (removedDevices.isNotEmpty()) {
             exitingSenderDeviceIds = removedDevices.map { it.deviceId }.toSet()
             displayedSenderDevices = senderDevices + removedDevices
-            delay(420)
+            delay(210)
         }
         displayedSenderDevices = senderDevices
         exitingSenderDeviceIds = emptySet()
     }
     val sizeEnter = expandVertically(
         expandFrom = Alignment.Top,
-        animationSpec = spring(stiffness = 420f)
-    ) + expandHorizontally(
-        expandFrom = Alignment.End,
-        animationSpec = spring(stiffness = 420f)
+        animationSpec = tween(180)
     )
     val sizeExit = shrinkVertically(
         shrinkTowards = Alignment.Top,
-        animationSpec = spring(stiffness = 420f)
-    ) + shrinkHorizontally(
-        shrinkTowards = Alignment.End,
-        animationSpec = spring(stiffness = 420f)
+        animationSpec = tween(150)
     )
 
     Column(
@@ -1614,7 +1612,6 @@ private fun DeviceManagementPage(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 20.dp)
-            .animateContentSize(animationSpec = spring(stiffness = 420f))
     ) {
         PageIntro(
             number = "03",
@@ -1670,7 +1667,7 @@ private fun DeviceManagementPage(
                 color = TajerMuted,
                 fontSize = 10.sp,
                 lineHeight = 17.sp,
-                modifier = Modifier.fillMaxWidth().animateContentSize()
+                modifier = Modifier.fillMaxWidth()
             )
         }
         AnimatedVisibility(
@@ -1690,7 +1687,7 @@ private fun DeviceManagementPage(
             exit = sizeExit
         ) {
             Surface(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).animateContentSize(),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 color = TajerSurface,
                 border = BorderStroke(1.dp, TajerBorder),
                 shape = RectangleShape
@@ -1734,9 +1731,7 @@ private fun DeviceManagementPage(
                         exit = sizeExit
                     ) {
                     Surface(
-                        modifier = Modifier.fillMaxWidth().animateContentSize(
-                            animationSpec = spring(stiffness = 420f)
-                        ),
+                        modifier = Modifier.fillMaxWidth(),
                         color = TajerSurface,
                         border = BorderStroke(1.dp, TajerBorder),
                         shape = RectangleShape
@@ -1745,7 +1740,7 @@ private fun DeviceManagementPage(
                             Modifier
                                 .fillMaxWidth()
                                 .padding(13.dp)
-                                .animateContentSize(animationSpec = spring(stiffness = 420f))
+                                
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1755,7 +1750,7 @@ private fun DeviceManagementPage(
                                 Column(
                                     Modifier
                                         .weight(1f)
-                                        .animateContentSize()
+                                        
                                 ) {
                                     Text(
                                         device.displayName,
@@ -1780,7 +1775,7 @@ private fun DeviceManagementPage(
                                 Spacer(Modifier.width(8.dp))
                                 Column(
                                     horizontalAlignment = Alignment.End,
-                                    modifier = Modifier.animateContentSize()
+                                    modifier = Modifier
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1840,7 +1835,7 @@ private fun DeviceManagementPage(
                                         modifier = Modifier
                                             .weight(1f)
                                             .height(40.dp)
-                                            .animateContentSize(),
+                                            ,
                                         shape = RectangleShape,
                                         border = BorderStroke(1.dp, TajerBorder),
                                         contentPadding = PaddingValues(horizontal = 6.dp),
@@ -1864,7 +1859,7 @@ private fun DeviceManagementPage(
                                             showRevokeDialog = true
                                         },
                                         enabled = updatingManagerDeviceId != device.deviceId,
-                                        modifier = Modifier.height(40.dp).animateContentSize()
+                                        modifier = Modifier.height(40.dp)
                                     ) {
                                         Text(
                                             "إلغاء الربط",
@@ -1905,7 +1900,7 @@ private fun DeviceManagementPage(
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp)
-                        .animateContentSize(animationSpec = spring(stiffness = 420f))
+                        
                         .clickable { selectedOperator = code },
                     color = if (selected) TajerForest else TajerSurface,
                     border = BorderStroke(1.dp, if (selected) TajerForest else TajerBorder),
@@ -1945,7 +1940,7 @@ private fun DeviceManagementPage(
         Button(
             onClick = { onCreateInvite(selectedOperator) },
             enabled = !creatingInvite && selectedOperator.isNotBlank(),
-            modifier = Modifier.fillMaxWidth().height(54.dp).animateContentSize(),
+            modifier = Modifier.fillMaxWidth().height(54.dp),
             shape = RectangleShape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = TajerForest,
@@ -1984,7 +1979,7 @@ private fun DeviceManagementPage(
             enter = sizeEnter,
             exit = sizeExit
         ) {
-            Column(Modifier.fillMaxWidth().padding(top = 12.dp).animateContentSize()) {
+            Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                 Text(
                     invitationStatus,
                     color = if (invitationUrl.isNotBlank()) TajerForest else TajerMuted,
@@ -2107,7 +2102,7 @@ private fun DeviceManagementPage(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .animateContentSize(animationSpec = spring(stiffness = 420f)),
+                        ,
                     color = TajerSurface,
                     border = BorderStroke(1.dp, TajerBorder),
                     shape = RectangleShape
@@ -2134,7 +2129,7 @@ private fun DeviceManagementPage(
                         ) {
                             TextButton(
                                 onClick = { showRevokeDialog = false },
-                                modifier = Modifier.weight(1f).height(44.dp).animateContentSize()
+                                modifier = Modifier.weight(1f).height(44.dp)
                             ) {
                                 Text("إبقاء الهاتف", color = TajerForest, fontSize = 12.sp)
                             }
@@ -2143,7 +2138,7 @@ private fun DeviceManagementPage(
                                     confirmRevokeAfterDismiss = true
                                     showRevokeDialog = false
                                 },
-                                modifier = Modifier.weight(1f).height(44.dp).animateContentSize(),
+                                modifier = Modifier.weight(1f).height(44.dp),
                                 shape = RectangleShape,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF9B563F),
