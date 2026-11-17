@@ -155,8 +155,15 @@ class MainActivity : ComponentActivity() {
             while (true) {
                 isConnected = tokenStore.readProfiles().isNotEmpty()
                 storeName = tokenStore.storeName()
-                isRelayRunning = preferences.relayEnabled
-                relayConnectionState = preferences.relayConnectionState
+                isRelayRunning = preferences.relayEnabled && SmsGatewayService.isRunning
+                relayConnectionState = if (preferences.relayEnabled && !SmsGatewayService.isRunning) {
+                    "needs_user_start"
+                } else {
+                    preferences.relayConnectionState
+                }
+                if (preferences.relayEnabled && !SmsGatewayService.isRunning) {
+                    statusMessage = "الإرسال محفوظ كمفعّل، لكن خدمة الهاتف غير نشطة حالياً. افتح إعداد الإرسال واضغط تشغيل لاستعادة الاتصال."
+                }
                 val updatedAt = preferences.relayStatusUpdatedAt
                 if (updatedAt > lastObservedRelayStatusAt) {
                     statusMessage = preferences.relayStatusMessage
@@ -170,8 +177,15 @@ class MainActivity : ComponentActivity() {
     private fun refreshConnectionState() {
         isConnected = tokenStore.readProfiles().isNotEmpty()
         storeName = tokenStore.storeName()
-        isRelayRunning = preferences.relayEnabled
-        relayConnectionState = preferences.relayConnectionState
+        isRelayRunning = preferences.relayEnabled && SmsGatewayService.isRunning
+        relayConnectionState = if (preferences.relayEnabled && !SmsGatewayService.isRunning) {
+            "needs_user_start"
+        } else {
+            preferences.relayConnectionState
+        }
+        if (preferences.relayEnabled && !SmsGatewayService.isRunning) {
+            statusMessage = "الإرسال محفوظ كمفعّل، لكن خدمة الهاتف غير نشطة حالياً. افتح إعداد الإرسال واضغط تشغيل لاستعادة الاتصال."
+        }
         if (preferences.relayStatusUpdatedAt > lastObservedRelayStatusAt) {
             statusMessage = preferences.relayStatusMessage
             lastObservedRelayStatusAt = preferences.relayStatusUpdatedAt
@@ -409,8 +423,30 @@ class MainActivity : ComponentActivity() {
             statusMessage = "اربط متجرك أولاً قبل تفعيل إرسال الرسائل."
             return
         }
+
+        val missingPermissions = buildList {
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+                add(Manifest.permission.SEND_SMS)
+            }
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+                add(Manifest.permission.READ_PHONE_STATE)
+            }
+            if (Build.VERSION.SDK_INT >= 33 &&
+                ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (missingPermissions.isNotEmpty()) {
+            pendingStartAfterPermissions = true
+            statusMessage = "يلزم إعادة منح أذونات SMS وشرائح الاتصال قبل حجز أي طلب جديد."
+            permissionLauncher.launch(missingPermissions.toTypedArray())
+            return
+        }
+
+        refreshSimChoices()
         if (simChoices.isEmpty() || selectedSimId < 0) {
-            statusMessage = "لم يتم العثور على شريحة جاهزة. أدخل شريحة اتصال وامنح إذن الوصول إليها."
+            statusMessage = "لم يتم العثور على شريحة جاهزة. أدخل شريحة اتصال فعّالة واخترها أولاً."
             return
         }
         if (alternateSimsEnabled && (
@@ -429,9 +465,21 @@ class MainActivity : ComponentActivity() {
         relayConnectionState = "connecting"
         statusMessage = preferences.relayStatusMessage
         val serviceIntent = Intent(this, SmsGatewayService::class.java)
-        ContextCompat.startForegroundService(this, serviceIntent)
-        isRelayRunning = true
-        statusMessage = "تم تفعيل الإرسال. اترك هذا الهاتف متصلاً بالإنترنت."
+        try {
+            ContextCompat.startForegroundService(this, serviceIntent)
+            isRelayRunning = true
+            statusMessage = "بدأ تشغيل الخدمة. تحقق من حالة الاتصال قبل مغادرة التطبيق."
+        } catch (error: SecurityException) {
+            preferences.relayEnabled = false
+            isRelayRunning = false
+            relayConnectionState = "attention"
+            statusMessage = "منع Android تشغيل خدمة الإرسال بسبب أذونات أو إعدادات النظام. راجع أذونات التطبيق ثم حاول مجدداً."
+        } catch (error: IllegalStateException) {
+            preferences.relayEnabled = false
+            isRelayRunning = false
+            relayConnectionState = "needs_user_start"
+            statusMessage = "لم يسمح Android ببدء الخدمة في الخلفية. افتح التطبيق من جديد واضغط تشغيل الإرسال."
+        }
     }
 
     private fun sendTestSms() {
