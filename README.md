@@ -21,7 +21,7 @@ The merchant can pair up to three sender lines, one per carrier. They can all be
 - Every eligible new order creates exactly one tracking SMS job.
 - Algerian recipient prefixes are mapped centrally: 07 → Djezzy, 06 → Mobilis, 05 → Ooredoo.
 - The backend assigns the job to the corresponding sender line. The Android app then selects an enabled, active SIM whose carrier matches that line.
-- Enabling a second SIM does **not** rotate or duplicate messages. It simply makes that SIM eligible for customer numbers on its carrier. Disabling it means that handset uses only its primary SIM.
+- Enabling both SIMs does **not** rotate or duplicate messages. It makes both networks eligible for their matching customer numbers. Only enabled SIMs can be used; this phone supports up to two enabled SIMs.
 - If the matching sender line or matching SIM is unavailable, the job remains pending. There is no silent cross-network fallback. Invalid or unsupported destination numbers are explicitly marked `skipped` instead of remaining stuck in the queue.
 - The app does not read or depend on the SIM phone number. Android/carrier APIs do not reliably expose the SIM's own MSISDN.
 - Only one link SMS is sent when a new order is created. There are no repeated status-update SMS messages.
