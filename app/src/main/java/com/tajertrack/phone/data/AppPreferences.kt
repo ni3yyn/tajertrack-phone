@@ -34,7 +34,7 @@ class AppPreferences(context: Context) {
             .putInt(KEY_NEXT_SIM_SLOT, 0)
             .apply()
 
-    /** The configured SIMs are explicit allow-list entries, never a send-rotation list. */
+    /** The configured SIMs are an explicit allow-list, never an automatic rotation list. */
     fun enabledSubscriptionIds(): Set<Int> = buildSet {
         if (selectedSubscriptionId >= 0) add(selectedSubscriptionId)
         if (alternateSimsEnabled && secondarySubscriptionId >= 0 &&
@@ -42,7 +42,7 @@ class AppPreferences(context: Context) {
         ) add(secondarySubscriptionId)
     }
 
-    /** Legacy lines use the primary SIM only; carrier-aware lines select their matching enabled SIM. */
+    /** Legacy lines use only the explicitly selected primary SIM. */
     fun nextSubscriptionIdForMessage(): Int = selectedSubscriptionId
 
     var relayConnectionState: String
@@ -65,27 +65,101 @@ class AppPreferences(context: Context) {
         get() = preferences.getInt(KEY_RELAY_FAILURE_COUNT, 0)
         set(value) = preferences.edit().putInt(KEY_RELAY_FAILURE_COUNT, value.coerceAtLeast(0)).apply()
 
-    /** Saves an SMS result before reporting it, so the same SMS is never resent after a lost API response. */
+    /**
+     * Persist a claim before the SMS API can be called. If the process dies in
+     * this stage, recovery can prove that Android was never asked to send it.
+     */
+    fun savePendingSmsClaim(jobId: String, deviceId: String, claimToken: String): Boolean =
+        savePendingSmsReport(
+            PendingSmsReport(
+                jobId = jobId,
+                deviceId = deviceId,
+                status = "not_sent",
+                error = null,
+                claimToken = claimToken,
+                stage = STAGE_CLAIMED
+            )
+        )
+
+    /** Mark the local point after which the SMS call may have happened. */
+    fun markPendingSmsInvoking(jobId: String): Boolean {
+        if (preferences.getString(KEY_PENDING_REPORT_JOB_ID, null) != jobId) return false
+        return preferences.edit()
+            .putString(KEY_PENDING_REPORT_STAGE, STAGE_INVOKING)
+            .commit()
+    }
+
+    /** Save the final/ambiguous SMS outcome synchronously before any network report. */
+    fun savePendingSmsOutcome(report: PendingSmsReport): Boolean =
+        savePendingSmsReport(report.copy(stage = STAGE_RESULT))
+
     fun savePendingSmsReport(report: PendingSmsReport): Boolean {
         return preferences.edit()
             .putString(KEY_PENDING_REPORT_JOB_ID, report.jobId)
             .putString(KEY_PENDING_REPORT_DEVICE_ID, report.deviceId)
             .putString(KEY_PENDING_REPORT_STATUS, report.status)
             .putString(KEY_PENDING_REPORT_ERROR, report.error.orEmpty())
+            .putString(KEY_PENDING_REPORT_CLAIM_TOKEN, report.claimToken.orEmpty())
+            .putString(KEY_PENDING_REPORT_STAGE, report.stage)
+            .putBoolean(KEY_PENDING_REPORT_RETRYABLE, report.retryable)
+            .putString(KEY_PENDING_REPORT_FAILURE_CODE, report.failureCode.orEmpty())
             .commit()
+    }
+
+    /**
+     * SMS sent broadcasts can arrive after the service process was recreated.
+     * The receiver writes the result directly to this journal before notifying
+     * the in-memory coroutine, so a process death cannot discard the callback.
+     */
+    fun recordPendingSmsOutcome(
+        jobId: String,
+        status: String,
+        error: String?,
+        retryable: Boolean,
+        failureCode: String?
+    ): Boolean {
+        if (status !in setOf("submitted", "failed", "unknown")) return false
+        if (preferences.getString(KEY_PENDING_REPORT_JOB_ID, null) != jobId) return false
+
+        val stage = preferences.getString(KEY_PENDING_REPORT_STAGE, STAGE_RESULT)
+        val existingStatus = preferences.getString(KEY_PENDING_REPORT_STATUS, null)
+        if (stage != STAGE_INVOKING && !(stage == STAGE_RESULT && existingStatus == "unknown")) {
+            return false
+        }
+
+        return savePendingSmsReport(
+            PendingSmsReport(
+                jobId = jobId,
+                deviceId = preferences.getString(KEY_PENDING_REPORT_DEVICE_ID, "").orEmpty(),
+                status = status,
+                error = error,
+                claimToken = preferences.getString(KEY_PENDING_REPORT_CLAIM_TOKEN, null)
+                    ?.takeIf { it.isNotBlank() },
+                stage = STAGE_RESULT,
+                retryable = retryable,
+                failureCode = failureCode
+            )
+        )
     }
 
     fun pendingSmsReport(): PendingSmsReport? {
         val jobId = preferences.getString(KEY_PENDING_REPORT_JOB_ID, null)
             ?.takeIf { it.isNotBlank() } ?: return null
         val status = preferences.getString(KEY_PENDING_REPORT_STATUS, null)
-            ?.takeIf { it in setOf("submitted", "failed", "unknown") } ?: return null
+            ?.takeIf { it in setOf("submitted", "failed", "unknown", "not_sent") } ?: return null
 
         return PendingSmsReport(
             jobId = jobId,
             deviceId = preferences.getString(KEY_PENDING_REPORT_DEVICE_ID, "").orEmpty(),
             status = status,
-            error = preferences.getString(KEY_PENDING_REPORT_ERROR, null)?.takeIf { it.isNotBlank() }
+            error = preferences.getString(KEY_PENDING_REPORT_ERROR, null)?.takeIf { it.isNotBlank() },
+            claimToken = preferences.getString(KEY_PENDING_REPORT_CLAIM_TOKEN, null)
+                ?.takeIf { it.isNotBlank() },
+            // Older app releases stored only the result and did not persist a stage.
+            stage = preferences.getString(KEY_PENDING_REPORT_STAGE, STAGE_RESULT) ?: STAGE_RESULT,
+            retryable = preferences.getBoolean(KEY_PENDING_REPORT_RETRYABLE, false),
+            failureCode = preferences.getString(KEY_PENDING_REPORT_FAILURE_CODE, null)
+                ?.takeIf { it.isNotBlank() }
         )
     }
 
@@ -96,6 +170,10 @@ class AppPreferences(context: Context) {
             .remove(KEY_PENDING_REPORT_DEVICE_ID)
             .remove(KEY_PENDING_REPORT_STATUS)
             .remove(KEY_PENDING_REPORT_ERROR)
+            .remove(KEY_PENDING_REPORT_CLAIM_TOKEN)
+            .remove(KEY_PENDING_REPORT_STAGE)
+            .remove(KEY_PENDING_REPORT_RETRYABLE)
+            .remove(KEY_PENDING_REPORT_FAILURE_CODE)
             .commit()
     }
 
@@ -115,6 +193,14 @@ class AppPreferences(context: Context) {
         private const val KEY_PENDING_REPORT_DEVICE_ID = "pending_sms_report_device_id"
         private const val KEY_PENDING_REPORT_STATUS = "pending_sms_report_status"
         private const val KEY_PENDING_REPORT_ERROR = "pending_sms_report_error"
+        private const val KEY_PENDING_REPORT_CLAIM_TOKEN = "pending_sms_report_claim_token"
+        private const val KEY_PENDING_REPORT_STAGE = "pending_sms_report_stage"
+        private const val KEY_PENDING_REPORT_RETRYABLE = "pending_sms_report_retryable"
+        private const val KEY_PENDING_REPORT_FAILURE_CODE = "pending_sms_report_failure_code"
+
+        const val STAGE_CLAIMED = "claimed"
+        const val STAGE_INVOKING = "invoking"
+        const val STAGE_RESULT = "result"
     }
 }
 
@@ -122,5 +208,9 @@ data class PendingSmsReport(
     val jobId: String,
     val deviceId: String,
     val status: String,
-    val error: String?
+    val error: String?,
+    val claimToken: String? = null,
+    val stage: String = AppPreferences.STAGE_RESULT,
+    val retryable: Boolean = false,
+    val failureCode: String? = null
 )
