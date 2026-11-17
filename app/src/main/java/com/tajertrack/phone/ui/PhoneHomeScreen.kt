@@ -108,6 +108,7 @@ fun PhoneHomeScreen(
     relayRunning: Boolean,
     relayConnectionState: String,
     storeName: String,
+    deviceManagerLaunchRequest: Int,
     managerDevice: Boolean,
     invitationUrl: String,
     invitationStatus: String,
@@ -151,6 +152,11 @@ fun PhoneHomeScreen(
         )
         val scope = rememberCoroutineScope()
         var destination by remember { mutableStateOf(PhoneDestination.Home) }
+        LaunchedEffect(deviceManagerLaunchRequest) {
+            if (deviceManagerLaunchRequest > 0) {
+                destination = PhoneDestination.Devices
+            }
+        }
         var showExitConfirmation by remember { mutableStateOf(false) }
         val pageTitle = when (destination) {
             PhoneDestination.Home -> "الرئيسية"
