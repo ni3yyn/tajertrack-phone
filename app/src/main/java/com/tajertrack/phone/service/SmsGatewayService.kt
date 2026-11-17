@@ -614,10 +614,26 @@ class SmsGatewayService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
+            // The carrier supplies the raw status-report PDU by filling in this
+            // explicit, app-private receiver's mutable PendingIntent. The
+            // receiver itself is not exported, limiting who can invoke it.
+            val deliveryIntent = Intent(this, SmsSendResultReceiver::class.java).apply {
+                action = SmsSendResultReceiver.ACTION_SMS_DELIVERED
+                data = android.net.Uri.parse("tajertrack-sms://delivered/${job.id}")
+                putExtra(SmsSendResultReceiver.EXTRA_JOB_ID, job.id)
+                putExtra(SmsSendResultReceiver.EXTRA_CLAIM_TOKEN, job.claimToken)
+            }
+            val deliveryPendingIntent = PendingIntent.getBroadcast(
+                this,
+                job.id.hashCode() xor 0x4D454E,
+                deliveryIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
+
             // Persisted stage is already "invoking" before this line. Any process
             // death after it is treated as ambiguous, never automatically resent.
             sendCallStarted = true
-            manager.sendTextMessage(job.phone, null, job.message, pendingIntent, null)
+            manager.sendTextMessage(job.phone, null, job.message, pendingIntent, deliveryPendingIntent)
 
             withTimeoutOrNull(SMS_RESULT_TIMEOUT_MS) { result.await() }
                 ?: SmsSendOutcome(
