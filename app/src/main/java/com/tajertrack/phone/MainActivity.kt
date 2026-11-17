@@ -226,8 +226,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshConnectionState() {
-        isConnected = tokenStore.readProfiles().isNotEmpty()
         isManager = tokenStore.hasManagerCredential()
+        // A manager credential remains valid independently of its SMS sender profile.
+        isConnected = tokenStore.readProfiles().isNotEmpty() || isManager
         storeName = tokenStore.storeName()
         isRelayRunning = preferences.relayEnabled && SmsGatewayService.isRunning
         relayConnectionState = if (preferences.relayEnabled && !SmsGatewayService.isRunning) {
@@ -251,19 +252,22 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openPairingPage() {
-        val redirectUri = Uri.encode("tajertrack-sms://manager-pair")
+        val deviceModel = listOfNotNull(Build.MANUFACTURER, Build.MODEL)
+            .joinToString(" ")
+            .trim()
+            .take(80)
+            .ifBlank { "Android phone" }
         val managerDeviceId = tokenStore.managerDeviceId()
-        val currentManagerQuery = if (
-            tokenStore.hasManagerCredential() &&
-            managerDeviceId.matches(Regex("[A-Za-z0-9_-]{8,80}"))
-        ) {
-            "&manager_device_id=${Uri.encode(managerDeviceId)}"
-        } else {
-            ""
+        val urlBuilder = Uri.parse("${BuildConfig.TAJERTRACK_BASE_URL}/mobile/sms-gateway/connect")
+            .buildUpon()
+            .appendQueryParameter("redirect_uri", "tajertrack-sms://manager-pair")
+            .appendQueryParameter("device_model", deviceModel)
+        if (tokenStore.hasManagerCredential() && managerDeviceId.matches(Regex("[A-Za-z0-9_-]{8,80}"))) {
+            urlBuilder.appendQueryParameter("manager_device_id", managerDeviceId)
         }
-        val url = "${BuildConfig.TAJERTRACK_BASE_URL}/mobile/sms-gateway/connect?redirect_uri=$redirectUri$currentManagerQuery"
+        val url = urlBuilder.build()
         runCatching {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            startActivity(Intent(Intent.ACTION_VIEW, url))
         }.onFailure {
             statusMessage = "تعذر فتح صفحة تاجر تراك. تحقق من اتصال الإنترنت."
         }
