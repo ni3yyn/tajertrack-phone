@@ -1995,9 +1995,7 @@ private fun DeviceManagementPage(
             exit = sizeExit
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 22.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Spacer(Modifier.height(22.dp))
                 HorizontalDivider(color = TajerBorder)
