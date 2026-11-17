@@ -265,11 +265,6 @@ class MainActivity : ComponentActivity() {
             }
             return
         }
-        if (uri.host == "message-log") {
-            deviceManagerLaunchRequest += 1
-            if (tokenStore.hasManagerCredential()) loadManagerSmsMessages(reset = true)
-            return
-        }
         if (uri.host !in setOf("pair", "manager-pair")) return
 
         val managerMode = uri.host == "manager-pair"
