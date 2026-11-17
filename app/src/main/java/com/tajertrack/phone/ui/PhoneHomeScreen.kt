@@ -92,6 +92,7 @@ import kotlinx.coroutines.launch
 private enum class PhoneDestination {
     Home,
     Connection,
+    Devices,
     Sending,
     Guide,
     About
@@ -104,6 +105,10 @@ fun PhoneHomeScreen(
     relayRunning: Boolean,
     relayConnectionState: String,
     storeName: String,
+    managerDevice: Boolean,
+    invitationUrl: String,
+    invitationStatus: String,
+    creatingInvite: Boolean,
     statusMessage: String,
     pairing: Boolean,
     simSetupUnlocked: Boolean,
@@ -123,7 +128,13 @@ fun PhoneHomeScreen(
     updateMessage: String,
     availableUpdateVersion: String?,
     onCheckForUpdates: () -> Unit,
-    onDownloadUpdate: () -> Unit
+    onDownloadUpdate: () -> Unit,
+    onCreateInvite: (String) -> Unit,
+    onSendInviteBySms: () -> Unit,
+    onShareInvite: () -> Unit,
+    onCopyInvite: () -> Unit,
+    onCopyDownloadLink: () -> Unit,
+    onCopyInviteMessage: () -> Unit
 ) {
     CompositionDirectionRtl {
         val drawerState = androidx.compose.material3.rememberDrawerState(
@@ -135,6 +146,7 @@ fun PhoneHomeScreen(
         val pageTitle = when (destination) {
             PhoneDestination.Home -> "الرئيسية"
             PhoneDestination.Connection -> "ربط المتجر"
+            PhoneDestination.Devices -> "إدارة أجهزة الإرسال"
             PhoneDestination.Sending -> "إرسال الرسائل"
             PhoneDestination.Guide -> "الشروط والأسئلة"
             PhoneDestination.About -> "حول التطبيق"
@@ -153,6 +165,7 @@ fun PhoneHomeScreen(
                     ) {
                         PhoneNavigationDrawer(
                             destination = destination,
+                            managerDevice = managerDevice,
                             isCheckingForUpdates = isCheckingForUpdates,
                             updateMessage = updateMessage,
                             availableUpdateVersion = availableUpdateVersion,
@@ -230,13 +243,34 @@ fun PhoneHomeScreen(
                             when (target) {
                                 PhoneDestination.Home -> HomePage(
                                     connected = connected,
+                                    managerDevice = managerDevice,
                                     relayRunning = relayRunning,
                                     relayConnectionState = relayConnectionState,
                                     storeName = storeName,
                                     onOpenConnection = { destination = PhoneDestination.Connection },
+                                    onOpenDevices = { destination = PhoneDestination.Devices },
                                     onOpenSending = { destination = PhoneDestination.Sending }
                                 )
                                 PhoneDestination.Connection -> ConnectionPage(
+                                    connected = connected,
+                                    storeName = storeName,
+                                    pairing = pairing,
+                                    statusMessage = statusMessage,
+                                    onConnect = onConnect,
+                                    onContinue = { destination = PhoneDestination.Sending }
+                                )
+                                PhoneDestination.Devices -> if (managerDevice) DeviceManagementPage(
+                                    storeName = storeName,
+                                    invitationUrl = invitationUrl,
+                                    invitationStatus = invitationStatus,
+                                    creatingInvite = creatingInvite,
+                                    onCreateInvite = onCreateInvite,
+                                    onSendInviteBySms = onSendInviteBySms,
+                                    onShareInvite = onShareInvite,
+                                    onCopyInvite = onCopyInvite,
+                                    onCopyDownloadLink = onCopyDownloadLink,
+                                    onCopyInviteMessage = onCopyInviteMessage
+                                ) else ConnectionPage(
                                     connected = connected,
                                     storeName = storeName,
                                     pairing = pairing,
@@ -313,6 +347,7 @@ private fun CompositionDirectionRtl(content: @Composable () -> Unit) {
 @Composable
 private fun PhoneNavigationDrawer(
     destination: PhoneDestination,
+    managerDevice: Boolean,
     isCheckingForUpdates: Boolean,
     updateMessage: String,
     availableUpdateVersion: String?,
@@ -359,6 +394,14 @@ private fun PhoneNavigationDrawer(
             selected = destination == PhoneDestination.Connection,
             onClick = { onNavigate(PhoneDestination.Connection) }
         )
+        if (managerDevice) {
+            DrawerItem(
+                title = "إدارة أجهزة الإرسال",
+                icon = Icons.Outlined.Link,
+                selected = destination == PhoneDestination.Devices,
+                onClick = { onNavigate(PhoneDestination.Devices) }
+            )
+        }
         DrawerItem(
             title = "إرسال الرسائل",
             icon = Icons.Outlined.Sms,
@@ -525,11 +568,13 @@ private fun relayConnectionLabel(state: String, relayRunning: Boolean): String =
 @Composable
 private fun HomePage(
     connected: Boolean,
+    managerDevice: Boolean,
     relayRunning: Boolean,
     relayConnectionState: String,
     storeName: String,
     onOpenConnection: () -> Unit,
-    onOpenSending: () -> Unit
+    onOpenSending: () -> Unit,
+    onOpenDevices: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -619,6 +664,16 @@ private fun HomePage(
                     if (relayRunning) "إدارة إرسال الرسائل" else "الخطوة التالية: إعداد إرسال الرسائل",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            if (managerDevice) {
+                Spacer(Modifier.height(10.dp))
+                NativeActionRow(
+                    icon = Icons.Outlined.Link,
+                    title = "إدارة أجهزة الإرسال",
+                    detail = "إنشاء دعوات وربط هواتف أخرى بخطوط الشبكات",
+                    onClick = onOpenDevices
                 )
             }
             Spacer(Modifier.height(10.dp))
@@ -1395,6 +1450,228 @@ private fun PhoneSplashScreen() {
     }
 }
 
+
+@Composable
+private fun DeviceManagementPage(
+    storeName: String,
+    invitationUrl: String,
+    invitationStatus: String,
+    creatingInvite: Boolean,
+    onCreateInvite: (String) -> Unit,
+    onSendInviteBySms: () -> Unit,
+    onShareInvite: () -> Unit,
+    onCopyInvite: () -> Unit,
+    onCopyDownloadLink: () -> Unit,
+    onCopyInviteMessage: () -> Unit
+) {
+    var selectedOperator by remember { mutableStateOf("mobilis") }
+    val operators = listOf(
+        "djezzy" to "Djezzy",
+        "mobilis" to "Mobilis",
+        "ooredoo" to "Ooredoo"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 20.dp)
+    ) {
+        PageIntro(
+            number = "02",
+            title = "إدارة أجهزة الإرسال",
+            subtitle = "أنشئ دعوة آمنة لهاتف آخر حتى يرسل رسائل التتبع من شريحته."
+        )
+        Spacer(Modifier.height(20.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = TajerForest,
+            shape = RectangleShape
+        ) {
+            Column(Modifier.padding(18.dp)) {
+                Text("الهاتف الرئيسي", color = Color(0xFFDCE7DC), fontSize = 11.sp)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    storeName.ifBlank { "متجرك" },
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "هذا الهاتف يملك صلاحية إنشاء الدعوات وإدارة ربط الهواتف. الهواتف المدعوة تحصل على صلاحية إرسال الرسائل فقط.",
+                    color = Color(0xFFDCE7DC),
+                    fontSize = 11.sp,
+                    lineHeight = 19.sp
+                )
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+        SectionHeading("إنشاء دعوة جديدة", "اختر شبكة الشريحة الموجودة في الهاتف الذي تريد ربطه.")
+        Spacer(Modifier.height(11.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            operators.forEach { (code, label) ->
+                val selected = selectedOperator == code
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp)
+                        .clickable { selectedOperator = code },
+                    color = if (selected) TajerForest else TajerSurface,
+                    border = BorderStroke(1.dp, if (selected) TajerForest else TajerBorder),
+                    shape = RectangleShape
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            label,
+                            color = if (selected) Color.White else TajerInk,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(13.dp))
+        Button(
+            onClick = { onCreateInvite(selectedOperator) },
+            enabled = !creatingInvite,
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = RectangleShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = TajerForest,
+                contentColor = Color.White,
+                disabledContainerColor = TajerForest,
+                disabledContentColor = Color.White.copy(alpha = 0.7f)
+            )
+        ) {
+            if (creatingInvite) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                )
+                Spacer(Modifier.width(10.dp))
+            }
+            Text(
+                if (creatingInvite) "جارٍ إنشاء الدعوة..." else "إنشاء رابط الدعوة",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        if (invitationStatus.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                invitationStatus,
+                color = if (invitationUrl.isNotBlank()) TajerForest else TajerMuted,
+                fontSize = 11.sp,
+                lineHeight = 19.sp
+            )
+        }
+
+        if (invitationUrl.isNotBlank()) {
+            Spacer(Modifier.height(22.dp))
+            HorizontalDivider(color = TajerBorder)
+            Spacer(Modifier.height(17.dp))
+            SectionHeading("الدعوة جاهزة للمشاركة", "تنتهي صلاحيتها بعد 30 دقيقة، وتُستخدم مرة واحدة فقط.")
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = TajerSurface,
+                border = BorderStroke(1.dp, TajerBorder),
+                shape = RectangleShape
+            ) {
+                Column(Modifier.padding(14.dp)) {
+                    Text(
+                        invitationUrl,
+                        color = TajerForest,
+                        fontSize = 11.sp,
+                        lineHeight = 18.sp
+                    )
+                    Spacer(Modifier.height(9.dp))
+                    Text(
+                        "تشمل الرسالة رابط تحميل التطبيق ورابط الدعوة الخاص بهذه الشبكة.",
+                        color = TajerMuted,
+                        fontSize = 10.sp,
+                        lineHeight = 17.sp
+                    )
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Button(
+                onClick = onSendInviteBySms,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RectangleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = TajerForest)
+            ) {
+                Icon(Icons.Outlined.Sms, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(9.dp))
+                Text("إرسال عبر SMS", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onShareInvite,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RectangleShape,
+                border = BorderStroke(1.dp, TajerBorder),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
+            ) {
+                Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(9.dp))
+                Text("مشاركة عبر Telegram أو التطبيقات الأخرى", fontSize = 11.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onCopyInviteMessage,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                shape = RectangleShape,
+                border = BorderStroke(1.dp, TajerBorder),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
+            ) {
+                Text("نسخ الرسالة الكاملة", fontSize = 11.sp)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onCopyInvite,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    shape = RectangleShape,
+                    border = BorderStroke(1.dp, TajerBorder),
+                    contentPadding = PaddingValues(horizontal = 7.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
+                ) {
+                    Text("نسخ رابط الدعوة", fontSize = 10.sp)
+                }
+                OutlinedButton(
+                    onClick = onCopyDownloadLink,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    shape = RectangleShape,
+                    border = BorderStroke(1.dp, TajerBorder),
+                    contentPadding = PaddingValues(horizontal = 7.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
+                ) {
+                    Text("نسخ رابط التحميل", fontSize = 10.sp)
+                }
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+        HorizontalDivider(color = TajerBorder)
+        Spacer(Modifier.height(13.dp))
+        Text(
+            "كل هاتف مدعو يرتبط بشبكة واحدة فقط. لإضافة شبكة أخرى على هاتف مزدوج الشريحة، أنشئ دعوة ثانية للشبكة الأخرى وافتحها على الهاتف نفسه.",
+            color = TajerMuted,
+            fontSize = 10.sp,
+            lineHeight = 18.sp
+        )
+        Spacer(Modifier.height(18.dp))
+    }
+}
 
 @Composable
 private fun GuidePage() {
