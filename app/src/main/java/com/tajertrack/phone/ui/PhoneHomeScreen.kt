@@ -1050,7 +1050,7 @@ private fun SendingPage(
             ) {
                 Column(
                     Modifier
-                        
+
                         .padding(18.dp)
                 ) {
                     Text("المتجر المرتبط", fontSize = 10.sp, color = TajerMuted)
@@ -1089,7 +1089,7 @@ private fun SendingPage(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                
+
                         ) {
                             Spacer(Modifier.height(14.dp))
                             if (simChoices.isNotEmpty()) {
@@ -1155,7 +1155,7 @@ private fun SendingPage(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        
+
                 ) {
                     Spacer(Modifier.height(11.dp))
                     OutlinedButton(
@@ -1740,7 +1740,7 @@ private fun DeviceManagementPage(
                             Modifier
                                 .fillMaxWidth()
                                 .padding(13.dp)
-                                
+
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1750,7 +1750,7 @@ private fun DeviceManagementPage(
                                 Column(
                                     Modifier
                                         .weight(1f)
-                                        
+
                                 ) {
                                     Text(
                                         device.displayName,
@@ -1900,7 +1900,7 @@ private fun DeviceManagementPage(
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp)
-                        
+
                         .clickable { selectedOperator = code },
                     color = if (selected) TajerForest else TajerSurface,
                     border = BorderStroke(1.dp, if (selected) TajerForest else TajerBorder),
