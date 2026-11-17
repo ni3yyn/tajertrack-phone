@@ -193,26 +193,45 @@ class SmsGatewayService : Service() {
                 var operatorConflict = false
                 var claimedAndSent = false
 
-                for (profile in profiles) {
-                    val subscriptionId = resolveSubscriptionId(
-                        operatorCode = profile.operatorCode,
-                        activeSubscriptions = activeSubscriptions,
-                        enabledSubscriptionIds = enabledSubscriptionIds,
-                        preferences = preferences
-                    ) ?: continue
+                // A carrier-neutral manager credential can poll once for each
+                // distinct operator represented by the SIMs the merchant enabled.
+                // Carrier-scoped invited credentials still poll only their assigned
+                // network. This lets a dual-SIM main phone serve both networks with
+                // one manager pairing and without binding the credential to one SIM.
+                val profileLines = buildList {
+                    profiles.forEach { profile ->
+                        if (profile.operatorCode != null) {
+                            val subscriptionId = resolveSubscriptionId(
+                                operatorCode = profile.operatorCode,
+                                activeSubscriptions = activeSubscriptions,
+                                enabledSubscriptionIds = enabledSubscriptionIds,
+                                preferences = preferences
+                            )
+                            if (subscriptionId != null) {
+                                add(Triple(profile, subscriptionId, profile.operatorCode))
+                            }
+                        } else {
+                            val enabledSubscriptions = activeSubscriptions.filter {
+                                it.subscriptionId in enabledSubscriptionIds
+                            }
+                            if (enabledSubscriptions.any { detectOperator(it) == null }) {
+                                operatorNeedsSetup = true
+                            }
+                            val byOperator = enabledSubscriptions.mapNotNull { subscription ->
+                                detectOperator(subscription)?.let { operator -> operator to subscription }
+                            }.groupBy({ it.first }, { it.second })
+                            byOperator.forEach { (operator, matchingSims) ->
+                                val chosenSim = matchingSims.firstOrNull {
+                                    it.subscriptionId == preferences.selectedSubscriptionId
+                                } ?: matchingSims.first()
+                                add(Triple(profile, chosenSim.subscriptionId, operator))
+                            }
+                        }
+                    }
+                }
 
+                for ((profile, subscriptionId, effectiveOperatorCode) in profileLines) {
                     hasEligibleLine = true
-                    val selectedSubscription = activeSubscriptions.firstOrNull {
-                        it.subscriptionId == subscriptionId
-                    }
-                    val effectiveOperatorCode = profile.operatorCode
-                        ?: selectedSubscription?.let(::detectOperator)
-
-                    if (effectiveOperatorCode == null) {
-                        operatorNeedsSetup = true
-                        continue
-                    }
-
                     val claim = try {
                         api.claim(profile.token, effectiveOperatorCode)
                     } catch (error: GatewayHttpException) {
