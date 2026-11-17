@@ -206,11 +206,16 @@ class ApiClient {
         }
     }
 
-    suspend fun claim(token: String, operatorCode: String?): ClaimResult = withContext(Dispatchers.IO) {
+    suspend fun claim(
+        token: String,
+        operatorCode: String?,
+        allowCrossNetworkFallback: Boolean = false
+    ): ClaimResult = withContext(Dispatchers.IO) {
         val payload = JSONObject()
             .put("appVersion", BuildConfig.VERSION_NAME)
             .put("dispatchProtocol", 1)
         if (!operatorCode.isNullOrBlank()) payload.put("operatorCode", operatorCode)
+        if (allowCrossNetworkFallback) payload.put("allowCrossNetworkFallback", true)
 
         val response = post(
             "/api/mobile/sms-gateway/device/claim",
