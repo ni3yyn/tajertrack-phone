@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
     private var secondarySimId by mutableStateOf(-1)
     private var alternateSimsEnabled by mutableStateOf(false)
     private var isPairing by mutableStateOf(false)
+    private var deviceManagerLaunchRequest by mutableStateOf(0)
     private var simSetupUnlocked by mutableStateOf(false)
     private var isSendingTestSms by mutableStateOf(false)
     private var isCheckingForUpdates by mutableStateOf(false)
@@ -113,6 +114,7 @@ class MainActivity : ComponentActivity() {
                     relayRunning = isRelayRunning,
                     relayConnectionState = relayConnectionState,
                     storeName = storeName,
+                    deviceManagerLaunchRequest = deviceManagerLaunchRequest,
                     managerDevice = isManager,
                     invitationUrl = invitationUrl,
                     invitationStatus = invitationStatus,
@@ -237,7 +239,13 @@ class MainActivity : ComponentActivity() {
 
     private fun handlePairingIntent(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (uri.scheme != "tajertrack-sms" || uri.host !in setOf("pair", "manager-pair")) return
+        if (uri.scheme != "tajertrack-sms") return
+        if (uri.host == "device-manager") {
+            deviceManagerLaunchRequest += 1
+            if (tokenStore.hasManagerCredential()) loadManagerDevices()
+            return
+        }
+        if (uri.host !in setOf("pair", "manager-pair")) return
 
         val managerMode = uri.host == "manager-pair"
         val code = uri.getQueryParameter("code")?.trim().orEmpty()
