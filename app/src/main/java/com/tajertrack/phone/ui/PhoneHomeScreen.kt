@@ -1994,89 +1994,95 @@ private fun DeviceManagementPage(
             enter = sizeEnter,
             exit = sizeExit
         ) {
-            Spacer(Modifier.height(22.dp))
-            HorizontalDivider(color = TajerBorder)
-            Spacer(Modifier.height(17.dp))
-            SectionHeading("الدعوة جاهزة للمشاركة", "تنتهي صلاحيتها بعد 30 دقيقة، وتُستخدم مرة واحدة فقط.")
-            Spacer(Modifier.height(10.dp))
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = TajerSurface,
-                border = BorderStroke(1.dp, TajerBorder),
-                shape = RectangleShape
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 22.dp)
             ) {
-                Column(Modifier.padding(14.dp)) {
-                    Text(
-                        invitationUrl,
-                        color = TajerForest,
-                        fontSize = 11.sp,
-                        lineHeight = 18.sp
-                    )
-                    Spacer(Modifier.height(9.dp))
-                    Text(
-                        "تشمل الرسالة رابط تحميل التطبيق ورابط الدعوة الخاص بهذه الشبكة.",
-                        color = TajerMuted,
-                        fontSize = 10.sp,
-                        lineHeight = 17.sp
-                    )
+                Spacer(Modifier.height(22.dp))
+                HorizontalDivider(color = TajerBorder)
+                Spacer(Modifier.height(17.dp))
+                SectionHeading("الدعوة جاهزة للمشاركة", "تنتهي صلاحيتها بعد 30 دقيقة، وتُستخدم مرة واحدة فقط.")
+                Spacer(Modifier.height(10.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = TajerSurface,
+                    border = BorderStroke(1.dp, TajerBorder),
+                    shape = RectangleShape
+                ) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text(
+                            invitationUrl,
+                            color = TajerForest,
+                            fontSize = 11.sp,
+                            lineHeight = 18.sp
+                        )
+                        Spacer(Modifier.height(9.dp))
+                        Text(
+                            "تشمل الرسالة رابط تحميل التطبيق ورابط الدعوة الخاص بهذه الشبكة.",
+                            color = TajerMuted,
+                            fontSize = 10.sp,
+                            lineHeight = 17.sp
+                        )
+                    }
                 }
-            }
-            Spacer(Modifier.height(14.dp))
-            Button(
-                onClick = onSendInviteBySms,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RectangleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = TajerForest)
-            ) {
-                Icon(Icons.Outlined.Sms, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(9.dp))
-                Text("إرسال عبر SMS", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onShareInvite,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RectangleShape,
-                border = BorderStroke(1.dp, TajerBorder),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
-            ) {
-                Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(9.dp))
-                Text("مشاركة عبر Telegram أو التطبيقات الأخرى", fontSize = 11.sp)
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onCopyInviteMessage,
-                modifier = Modifier.fillMaxWidth().height(46.dp),
-                shape = RectangleShape,
-                border = BorderStroke(1.dp, TajerBorder),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
-            ) {
-                Text("نسخ الرسالة الكاملة", fontSize = 11.sp)
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = onSendInviteBySms,
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RectangleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = TajerForest)
+                ) {
+                    Icon(Icons.Outlined.Sms, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(9.dp))
+                    Text("إرسال عبر SMS", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = onCopyInvite,
-                    modifier = Modifier.weight(1f).height(44.dp),
+                    onClick = onShareInvite,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RectangleShape,
                     border = BorderStroke(1.dp, TajerBorder),
-                    contentPadding = PaddingValues(horizontal = 7.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
                 ) {
-                    Text("نسخ رابط الدعوة", fontSize = 10.sp)
+                    Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(9.dp))
+                    Text("مشاركة عبر Telegram أو التطبيقات الأخرى", fontSize = 11.sp)
                 }
+                Spacer(Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = onCopyDownloadLink,
-                    modifier = Modifier.weight(1f).height(44.dp),
+                    onClick = onCopyInviteMessage,
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
                     shape = RectangleShape,
                     border = BorderStroke(1.dp, TajerBorder),
-                    contentPadding = PaddingValues(horizontal = 7.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
                 ) {
-                    Text("نسخ رابط التحميل", fontSize = 10.sp)
+                    Text("نسخ الرسالة الكاملة", fontSize = 11.sp)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onCopyInvite,
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RectangleShape,
+                        border = BorderStroke(1.dp, TajerBorder),
+                        contentPadding = PaddingValues(horizontal = 7.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
+                    ) {
+                        Text("نسخ رابط الدعوة", fontSize = 10.sp)
+                    }
+                    OutlinedButton(
+                        onClick = onCopyDownloadLink,
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RectangleShape,
+                        border = BorderStroke(1.dp, TajerBorder),
+                        contentPadding = PaddingValues(horizontal = 7.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
+                    ) {
+                        Text("نسخ رابط التحميل", fontSize = 10.sp)
+                    }
                 }
             }
         }
