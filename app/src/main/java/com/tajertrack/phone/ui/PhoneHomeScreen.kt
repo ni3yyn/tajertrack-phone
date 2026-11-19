@@ -941,7 +941,6 @@ private fun ConnectionPage(
             visible = !connected,
             enter = appFadeEnter(),
             exit = appFadeExit()
-            )
         ) {
             Column {
                 Spacer(Modifier.height(12.dp))
@@ -956,7 +955,7 @@ private fun ConnectionPage(
         AnimatedVisibility(
             visible = statusMessage.isNotBlank(),
             enter = appFadeEnter(),
-            exit = appFadeExit())
+            exit = appFadeExit()
         ) {
             Column {
                 Spacer(Modifier.height(16.dp))
@@ -1072,7 +1071,7 @@ private fun SendingPage(
                     AnimatedVisibility(
                         visible = simSetupUnlocked,
                         enter = appFadeEnter(),
-                        exit = appFadeExit())
+                        exit = appFadeExit()
                     ) {
                         Column(
                             modifier = Modifier
@@ -1138,7 +1137,7 @@ private fun SendingPage(
             AnimatedVisibility(
                 visible = simSetupUnlocked && simChoices.isNotEmpty() && selectedSimId >= 0,
                 enter = appFadeEnter(),
-                exit = appFadeExit())
+                exit = appFadeExit()
             ) {
                 Column(
                     modifier = Modifier
@@ -1298,7 +1297,7 @@ private fun SimPicker(
         AnimatedVisibility(
             visible = expanded && sims.isNotEmpty(),
             enter = appFadeEnter(),
-            exit = appFadeExit())
+            exit = appFadeExit()
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().background(TajerSurface).border(1.dp, TajerBorder, RectangleShape)
