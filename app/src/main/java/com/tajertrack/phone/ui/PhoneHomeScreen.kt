@@ -7,9 +7,19 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -107,9 +117,39 @@ private enum class PhoneDestination {
     About
 }
 
-private fun appFadeEnter() = fadeIn(animationSpec = tween(140))
+private fun appPanelEnter() =
+    expandVertically(
+        expandFrom = Alignment.Top,
+        animationSpec = tween(durationMillis = 210, easing = FastOutSlowInEasing)
+    ) +
+        fadeIn(animationSpec = tween(durationMillis = 170)) +
+        slideInVertically(
+            initialOffsetY = { fullHeight -> fullHeight / 14 },
+            animationSpec = tween(durationMillis = 210, easing = FastOutSlowInEasing)
+        )
 
-private fun appFadeExit() = fadeOut(animationSpec = tween(110))
+private fun appPanelExit() =
+    shrinkVertically(
+        shrinkTowards = Alignment.Top,
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+    ) +
+        fadeOut(animationSpec = tween(durationMillis = 140)) +
+        slideOutVertically(
+            targetOffsetY = { fullHeight -> -fullHeight / 18 },
+            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+        )
+
+private fun appIconEnter() =
+    scaleIn(
+        initialScale = 0.82f,
+        animationSpec = tween(durationMillis = 170, easing = FastOutSlowInEasing)
+    ) + fadeIn(animationSpec = tween(durationMillis = 140))
+
+private fun appIconExit() =
+    scaleOut(
+        targetScale = 0.82f,
+        animationSpec = tween(durationMillis = 130, easing = FastOutSlowInEasing)
+    ) + fadeOut(animationSpec = tween(durationMillis = 110))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -268,7 +308,28 @@ fun PhoneHomeScreen(
                             targetState = destination,
                             label = "native-page-transition",
                             transitionSpec = {
-                                appFadeEnter() togetherWith appFadeExit()
+                                val returningHome = targetState == PhoneDestination.Home
+                                (
+                                    slideInHorizontally(
+                                        initialOffsetX = { fullWidth ->
+                                            if (returningHome) -fullWidth / 16 else fullWidth / 16
+                                        },
+                                        animationSpec = tween(
+                                            durationMillis = 230,
+                                            easing = FastOutSlowInEasing
+                                        )
+                                    ) + fadeIn(animationSpec = tween(durationMillis = 190))
+                                ) togetherWith (
+                                    slideOutHorizontally(
+                                        targetOffsetX = { fullWidth ->
+                                            if (returningHome) fullWidth / 20 else -fullWidth / 20
+                                        },
+                                        animationSpec = tween(
+                                            durationMillis = 190,
+                                            easing = FastOutSlowInEasing
+                                        )
+                                    ) + fadeOut(animationSpec = tween(durationMillis = 140))
+                                )
                             }
                         ) { target ->
                             when (target) {
@@ -387,8 +448,14 @@ fun PhoneHomeScreen(
             }
             AnimatedVisibility(
                 visible = splashVisible,
-                enter = appFadeEnter(),
-                exit = appFadeExit(),
+                enter = scaleIn(
+                    initialScale = 0.96f,
+                    animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing)
+                ) + fadeIn(animationSpec = tween(durationMillis = 220)),
+                exit = scaleOut(
+                    targetScale = 0.985f,
+                    animationSpec = tween(durationMillis = 170, easing = FastOutSlowInEasing)
+                ) + fadeOut(animationSpec = tween(durationMillis = 150)),
                 label = "brand-splash"
             ) {
                 PhoneSplashScreen()
@@ -939,8 +1006,8 @@ private fun ConnectionPage(
         }
         AnimatedVisibility(
             visible = !connected,
-            enter = appFadeEnter(),
-            exit = appFadeExit()
+            enter = appPanelEnter(),
+            exit = appPanelExit()
         ) {
             Column {
                 Spacer(Modifier.height(12.dp))
@@ -954,8 +1021,8 @@ private fun ConnectionPage(
         }
         AnimatedVisibility(
             visible = statusMessage.isNotBlank(),
-            enter = appFadeEnter(),
-            exit = appFadeExit()
+            enter = appPanelEnter(),
+            exit = appPanelExit()
         ) {
             Column {
                 Spacer(Modifier.height(16.dp))
@@ -1070,8 +1137,8 @@ private fun SendingPage(
                     )
                     AnimatedVisibility(
                         visible = simSetupUnlocked,
-                        enter = appFadeEnter(),
-                        exit = appFadeExit()
+                        enter = appPanelEnter(),
+                        exit = appPanelExit()
                     ) {
                         Column(
                             modifier = Modifier
@@ -1136,8 +1203,8 @@ private fun SendingPage(
 
             AnimatedVisibility(
                 visible = simSetupUnlocked && simChoices.isNotEmpty() && selectedSimId >= 0,
-                enter = appFadeEnter(),
-                exit = appFadeExit()
+                enter = appPanelEnter(),
+                exit = appPanelExit()
             ) {
                 Column(
                     modifier = Modifier
@@ -1260,6 +1327,11 @@ private fun SimPicker(
     onToggle: (Int) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing),
+        label = "sim-picker-arrow"
+    )
     val enabledLabels = sims.filter { it.subscriptionId in enabledSimIds }.map { it.label }
     val summary = if (enabledLabels.isEmpty()) "اختر الشرائح المفعّلة" else enabledLabels.joinToString("، ")
 
@@ -1290,14 +1362,14 @@ private fun SimPicker(
                     Icons.Outlined.ExpandMore,
                     contentDescription = if (expanded) "إغلاق قائمة الشرائح" else "فتح قائمة الشرائح",
                     tint = TajerForest,
-                    modifier = Modifier.size(23.dp).graphicsLayer { rotationZ = if (expanded) 180f else 0f }
+                    modifier = Modifier.size(23.dp).graphicsLayer { rotationZ = arrowRotation }
                 )
             }
         }
         AnimatedVisibility(
             visible = expanded && sims.isNotEmpty(),
-            enter = appFadeEnter(),
-            exit = appFadeExit()
+            enter = appPanelEnter(),
+            exit = appPanelExit()
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().background(TajerSurface).border(1.dp, TajerBorder, RectangleShape)
@@ -1559,8 +1631,8 @@ private fun DeviceManagementPage(
         displayedSenderDevices = senderDevices
         exitingSenderDeviceIds = emptySet()
     }
-    val fadeEnter = appFadeEnter()
-    val fadeExit = appFadeExit()
+    val panelEnter = appPanelEnter()
+    val panelExit = appPanelExit()
 
     Column(
         modifier = Modifier
@@ -1614,8 +1686,8 @@ private fun DeviceManagementPage(
         }
         AnimatedVisibility(
             visible = managerDevicesStatus.isNotBlank(),
-            enter = fadeEnter,
-            exit = fadeExit
+            enter = panelEnter,
+            exit = panelExit
         ) {
             Text(
                 managerDevicesStatus,
@@ -1627,8 +1699,8 @@ private fun DeviceManagementPage(
         }
         AnimatedVisibility(
             visible = loadingSenderDevices,
-            enter = fadeEnter,
-            exit = fadeExit
+            enter = panelEnter,
+            exit = panelExit
         ) {
             LinearProgressIndicator(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -1638,8 +1710,8 @@ private fun DeviceManagementPage(
         }
         AnimatedVisibility(
             visible = senderDevices.isEmpty() && displayedSenderDevices.isEmpty() && !loadingSenderDevices,
-            enter = fadeEnter,
-            exit = fadeExit
+            enter = panelEnter,
+            exit = panelExit
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -1669,8 +1741,8 @@ private fun DeviceManagementPage(
         }
         AnimatedVisibility(
             visible = displayedSenderDevices.isNotEmpty(),
-            enter = fadeEnter,
-            exit = fadeExit
+            enter = panelEnter,
+            exit = panelExit
         ) {
             Column(
                 modifier = Modifier
@@ -1682,8 +1754,8 @@ private fun DeviceManagementPage(
                 displayedSenderDevices.forEach { device ->
                     AnimatedVisibility(
                         visible = device.deviceId !in exitingSenderDeviceIds,
-                        enter = fadeEnter,
-                        exit = fadeExit
+                        enter = panelEnter,
+                        exit = panelExit
                     ) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -1770,8 +1842,8 @@ private fun DeviceManagementPage(
                             }
                             AnimatedVisibility(
                                 visible = !device.revoked,
-                                enter = fadeEnter,
-                                exit = fadeExit
+                                enter = panelEnter,
+                                exit = panelExit
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -1874,8 +1946,8 @@ private fun DeviceManagementPage(
                         )
                         AnimatedVisibility(
                             visible = selected,
-                            enter = fadeEnter,
-                            exit = fadeExit
+                            enter = appIconEnter(),
+                            exit = appIconExit()
                         ) {
                             Row {
                                 Spacer(Modifier.width(5.dp))
@@ -1906,8 +1978,8 @@ private fun DeviceManagementPage(
         ) {
             AnimatedVisibility(
                 visible = creatingInvite,
-                enter = fadeEnter,
-                exit = fadeExit
+                enter = appIconEnter(),
+                exit = appIconExit()
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(
@@ -1931,8 +2003,8 @@ private fun DeviceManagementPage(
 
         AnimatedVisibility(
             visible = invitationStatus.isNotBlank(),
-            enter = fadeEnter,
-            exit = fadeExit
+            enter = panelEnter,
+            exit = panelExit
         ) {
             Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                 Text(
@@ -1946,8 +2018,8 @@ private fun DeviceManagementPage(
 
         AnimatedVisibility(
             visible = invitationUrl.isNotBlank(),
-            enter = fadeEnter,
-            exit = fadeExit
+            enter = panelEnter,
+            exit = panelExit
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth()
@@ -2055,8 +2127,8 @@ private fun DeviceManagementPage(
         Dialog(onDismissRequest = { showRevokeDialog = false }) {
             AnimatedVisibility(
                 visible = showRevokeDialog,
-                enter = fadeEnter,
-                exit = fadeExit
+                enter = panelEnter,
+                exit = panelExit
             ) {
                 Surface(
                     modifier = Modifier
