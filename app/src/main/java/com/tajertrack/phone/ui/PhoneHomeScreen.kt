@@ -190,8 +190,20 @@ private fun RemoteDeviceHealthDetails(device: ManagerSenderDevice) {
                     report.relayServiceRunning -> "تعمل"
                     else -> "مفعّلة لكن الخدمة لا تعمل"
                 }, if (!report.relayEnabled) null else report.relayServiceRunning)
-            RemoteHealthRow("حالة الخدمة", remoteRelayStateLabel(report.relayConnectionState))
-            RemoteHealthRow("الشرائح النشطة / المفعّلة", "${report.activeSimCount?.toString() ?: "غير متاح"} / ${report.enabledSimCount}")
+            RemoteHealthRow(
+                "حالة الخدمة",
+                remoteRelayStateLabel(report.relayConnectionState),
+                when (report.relayConnectionState) {
+                    "connected", "sending", "reporting" -> true
+                    "offline", "needs_repair", "needs_pairing", "needs_user_start", "attention", "retrying" -> false
+                    else -> null
+                }
+            )
+            RemoteHealthRow(
+                "الشرائح النشطة / المفعّلة",
+                "${report.activeSimCount?.toString() ?: "غير متاح"} / ${report.enabledSimCount}",
+                report.enabledSimCount > 0
+            )
             RemoteHealthRow("شرائح محفوظة غير موجودة", report.missingEnabledSimCount?.toString() ?: "غير متاح",
                 report.missingEnabledSimCount?.let { it == 0 })
             RemoteHealthRow("تفعيل الشريحة الثانية", if (report.alternateSimsEnabled) "مفعّل" else "غير مفعّل")
@@ -2893,16 +2905,16 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
     }
     val statusLabel = when (message.deliveryStatus) {
         "delivered" -> "تم التسليم"
-        "pending" -> "بانتظار تقرير التسليم"
-        "failed" -> "تعذر التسليم"
-        "unknown" -> "تسليم غير مؤكد"
+        "pending", "awaiting_delivery" -> "بانتظار تقرير التسليم"
+        "failed", "delivery_failed" -> "تعذر التسليم"
+        "unknown", "delivery_unknown" -> "تسليم غير مؤكد"
         else -> sendStatusLabel
     }
     val statusColor = when (message.deliveryStatus) {
         "delivered" -> Color(0xFF287A45)
-        "pending" -> Color(0xFF9A6A18)
-        "unknown" -> Color(0xFFB56A35)
-        "failed" -> Color(0xFFB34B43)
+        "pending", "awaiting_delivery" -> Color(0xFF9A6A18)
+        "unknown", "delivery_unknown" -> Color(0xFFB56A35)
+        "failed", "delivery_failed" -> Color(0xFFB34B43)
         else -> when (message.status) {
             "submitted" -> Color(0xFF287A45)
             "pending", "retry", "processing" -> Color(0xFF9A6A18)
@@ -2912,9 +2924,9 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
     }
     val statusBackground = when (message.deliveryStatus) {
         "delivered" -> Color(0xFFE5F0E6)
-        "pending" -> Color(0xFFF5EEDC)
-        "unknown" -> Color(0xFFF7EADF)
-        "failed" -> Color(0xFFF7E7E5)
+        "pending", "awaiting_delivery" -> Color(0xFFF5EEDC)
+        "unknown", "delivery_unknown" -> Color(0xFFF7EADF)
+        "failed", "delivery_failed" -> Color(0xFFF7E7E5)
         else -> when (message.status) {
             "submitted" -> Color(0xFFE5F0E6)
             "pending", "retry", "processing" -> Color(0xFFF5EEDC)
@@ -2924,8 +2936,8 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
     }
     val statusMark = when {
         message.deliveryStatus == "delivered" -> true
-        message.deliveryStatus == "failed" -> false
-        message.deliveryStatus in setOf("pending", "unknown") -> null
+        message.deliveryStatus in setOf("failed", "delivery_failed") -> false
+        message.deliveryStatus in setOf("pending", "awaiting_delivery", "unknown", "delivery_unknown") -> null
         message.status == "submitted" -> true
         message.status in setOf("failed", "dead_letter", "expired", "skipped") -> false
         else -> null
