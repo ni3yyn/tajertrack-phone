@@ -993,7 +993,7 @@ private fun HomePage(
                     HeroStatus(
                         "اتصال الخادم",
                         relayConnectionLabel(relayConnectionState, relayRunning),
-                        relayConnectionState == "connected" || relayConnectionState == "sending"
+                        relayConnectionState in setOf("connected", "sending", "reporting")
                     )
                 }
                 Spacer(Modifier.height(13.dp))
