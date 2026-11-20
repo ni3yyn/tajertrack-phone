@@ -109,6 +109,7 @@ import kotlinx.coroutines.launch
 
 private enum class PhoneDestination {
     Home,
+    Health,
     Connection,
     Devices,
     SmsLog,
@@ -157,6 +158,19 @@ fun PhoneHomeScreen(
     connected: Boolean,
     relayRunning: Boolean,
     relayConnectionState: String,
+    relayDiagnosticMessage: String,
+    relayStatusUpdatedAt: Long,
+    relayLastSuccessfulPollAt: Long,
+    consecutiveRelayFailures: Int,
+    healthCheckedAt: Long,
+    internetValidated: Boolean,
+    smsPermissionGranted: Boolean,
+    phoneStatePermissionGranted: Boolean,
+    notificationsPermissionGranted: Boolean,
+    notificationsPermissionRequired: Boolean,
+    appVersion: String,
+    deviceName: String,
+    androidVersion: String,
     storeName: String,
     deviceManagerLaunchRequest: Int,
     managerDevice: Boolean,
@@ -206,7 +220,8 @@ fun PhoneHomeScreen(
     onLoadMoreManagerSmsMessages: () -> Unit,
     onFilterManagerSmsMessages: (String) -> Unit,
     onSearchManagerSmsMessages: (String) -> Unit,
-    onFilterManagerSmsDevice: (String) -> Unit
+    onFilterManagerSmsDevice: (String) -> Unit,
+    onRefreshHealth: () -> Unit
 ) {
     CompositionDirectionRtl {
         val drawerState = androidx.compose.material3.rememberDrawerState(
@@ -222,6 +237,7 @@ fun PhoneHomeScreen(
         var showExitConfirmation by remember { mutableStateOf(false) }
         val pageTitle = when (destination) {
             PhoneDestination.Home -> "الرئيسية"
+            PhoneDestination.Health -> "حالة الجهاز"
             PhoneDestination.Connection -> "ربط المتجر"
             PhoneDestination.Devices -> "إدارة أجهزة الإرسال"
             PhoneDestination.SmsLog -> "سجل الرسائل"
@@ -339,9 +355,35 @@ fun PhoneHomeScreen(
                                     relayRunning = relayRunning,
                                     relayConnectionState = relayConnectionState,
                                     storeName = storeName,
+                                    onOpenHealth = { destination = PhoneDestination.Health },
                                     onOpenConnection = { destination = PhoneDestination.Connection },
                                     onOpenDevices = { destination = PhoneDestination.Devices },
                                     onOpenSmsLog = { destination = PhoneDestination.SmsLog },
+                                    onOpenSending = { destination = PhoneDestination.Sending }
+                                )
+                                PhoneDestination.Health -> DeviceHealthPage(
+                                    connected = connected,
+                                    relayRunning = relayRunning,
+                                    relayConnectionState = relayConnectionState,
+                                    relayDiagnosticMessage = relayDiagnosticMessage,
+                                    relayStatusUpdatedAt = relayStatusUpdatedAt,
+                                    relayLastSuccessfulPollAt = relayLastSuccessfulPollAt,
+                                    consecutiveRelayFailures = consecutiveRelayFailures,
+                                    healthCheckedAt = healthCheckedAt,
+                                    internetValidated = internetValidated,
+                                    smsPermissionGranted = smsPermissionGranted,
+                                    phoneStatePermissionGranted = phoneStatePermissionGranted,
+                                    notificationsPermissionGranted = notificationsPermissionGranted,
+                                    notificationsPermissionRequired = notificationsPermissionRequired,
+                                    simChoices = simChoices,
+                                    selectedSimId = selectedSimId,
+                                    secondarySimId = secondarySimId,
+                                    alternateSimsEnabled = alternateSimsEnabled,
+                                    storeName = storeName,
+                                    appVersion = appVersion,
+                                    deviceName = deviceName,
+                                    androidVersion = androidVersion,
+                                    onRefresh = onRefreshHealth,
                                     onOpenSending = { destination = PhoneDestination.Sending }
                                 )
                                 PhoneDestination.Connection -> ConnectionPage(
@@ -515,6 +557,12 @@ private fun PhoneNavigationDrawer(
             icon = Icons.Outlined.Home,
             selected = destination == PhoneDestination.Home,
             onClick = { onNavigate(PhoneDestination.Home) }
+        )
+        DrawerItem(
+            title = "حالة الجهاز",
+            icon = Icons.Outlined.Info,
+            selected = destination == PhoneDestination.Health,
+            onClick = { onNavigate(PhoneDestination.Health) }
         )
         DrawerItem(
             title = "ربط المتجر",
@@ -706,6 +754,7 @@ private fun HomePage(
     relayRunning: Boolean,
     relayConnectionState: String,
     storeName: String,
+    onOpenHealth: () -> Unit,
     onOpenConnection: () -> Unit,
     onOpenSending: () -> Unit,
     onOpenDevices: () -> Unit,
@@ -718,7 +767,7 @@ private fun HomePage(
             .padding(horizontal = 20.dp, vertical = 18.dp)
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenHealth),
             color = TajerForest,
             shape = RectangleShape
         ) {
@@ -781,6 +830,16 @@ private fun HomePage(
                         relayConnectionLabel(relayConnectionState, relayRunning),
                         relayConnectionState == "connected" || relayConnectionState == "sending"
                     )
+                }
+                Spacer(Modifier.height(13.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("عرض تفاصيل حالة الجهاز", color = Color(0xFFDCE7DC), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.width(7.dp))
+                    Icon(Icons.Outlined.Info, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
                 }
             }
         }

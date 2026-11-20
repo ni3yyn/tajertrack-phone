@@ -7,6 +7,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.telephony.SmsManager
@@ -47,6 +49,15 @@ class MainActivity : ComponentActivity() {
     private var isConnected by mutableStateOf(false)
     private var isRelayRunning by mutableStateOf(false)
     private var relayConnectionState by mutableStateOf("stopped")
+    private var relayDiagnosticMessage by mutableStateOf("")
+    private var relayStatusUpdatedAt by mutableStateOf(0L)
+    private var relayLastSuccessfulPollAt by mutableStateOf(0L)
+    private var consecutiveRelayFailures by mutableStateOf(0)
+    private var healthCheckedAt by mutableStateOf(0L)
+    private var internetValidated by mutableStateOf(false)
+    private var smsPermissionGranted by mutableStateOf(false)
+    private var phoneStatePermissionGranted by mutableStateOf(false)
+    private var notificationsPermissionGranted by mutableStateOf(false)
     private var statusSyncJob: Job? = null
     private var lastObservedRelayStatusAt = 0L
     private var storeName by mutableStateOf("")
@@ -96,6 +107,7 @@ class MainActivity : ComponentActivity() {
 
         permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
             refreshSimChoices()
+            refreshHealthSignals()
             if (pendingStartAfterPermissions) {
                 pendingStartAfterPermissions = false
                 if (requiredPermissionsGranted()) {
@@ -121,6 +133,20 @@ class MainActivity : ComponentActivity() {
                     connected = isConnected,
                     relayRunning = isRelayRunning,
                     relayConnectionState = relayConnectionState,
+                    relayDiagnosticMessage = relayDiagnosticMessage,
+                    relayStatusUpdatedAt = relayStatusUpdatedAt,
+                    relayLastSuccessfulPollAt = relayLastSuccessfulPollAt,
+                    consecutiveRelayFailures = consecutiveRelayFailures,
+                    healthCheckedAt = healthCheckedAt,
+                    internetValidated = internetValidated,
+                    smsPermissionGranted = smsPermissionGranted,
+                    phoneStatePermissionGranted = phoneStatePermissionGranted,
+                    notificationsPermissionGranted = notificationsPermissionGranted,
+                    notificationsPermissionRequired = Build.VERSION.SDK_INT >= 33,
+                    appVersion = BuildConfig.VERSION_NAME,
+                    deviceName = listOfNotNull(Build.MANUFACTURER, Build.MODEL).joinToString(" ").trim().ifBlank { "Android" },
+                    androidVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+                    onRefreshHealth = { refreshSimChoices(); refreshHealthSignals() },
                     storeName = storeName,
                     deviceManagerLaunchRequest = deviceManagerLaunchRequest,
                     managerDevice = isManager,
@@ -186,6 +212,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshConnectionState()
         refreshSimChoices()
+        refreshHealthSignals()
         if (tokenStore.hasManagerCredential()) {
             loadManagerDevices()
             loadManagerSmsMessages(reset = true)
@@ -213,6 +240,10 @@ class MainActivity : ComponentActivity() {
                 } else {
                     preferences.relayConnectionState
                 }
+                relayDiagnosticMessage = preferences.relayStatusMessage
+                relayStatusUpdatedAt = preferences.relayStatusUpdatedAt
+                relayLastSuccessfulPollAt = preferences.relayLastSuccessfulPollAt
+                consecutiveRelayFailures = preferences.consecutiveRelayFailures
                 if (preferences.relayEnabled && !SmsGatewayService.isRunning) {
                     statusMessage = "الإرسال محفوظ كمفعّل، لكن خدمة الهاتف غير نشطة حالياً. افتح إعداد الإرسال واضغط تشغيل لاستعادة الاتصال."
                 }
@@ -250,6 +281,31 @@ class MainActivity : ComponentActivity() {
         selectedSimId = preferences.selectedSubscriptionId
         secondarySimId = preferences.secondarySubscriptionId
         alternateSimsEnabled = preferences.alternateSimsEnabled
+        refreshHealthSignals()
+    }
+
+    private fun refreshHealthSignals() {
+        relayDiagnosticMessage = preferences.relayStatusMessage
+        relayStatusUpdatedAt = preferences.relayStatusUpdatedAt
+        relayLastSuccessfulPollAt = preferences.relayLastSuccessfulPollAt
+        consecutiveRelayFailures = preferences.consecutiveRelayFailures
+
+        smsPermissionGranted =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
+        phoneStatePermissionGranted =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+        notificationsPermissionGranted = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+        internetValidated = runCatching {
+            val connectivity = getSystemService(ConnectivityManager::class.java)
+            val network = connectivity.activeNetwork ?: return@runCatching false
+            val capabilities = connectivity.getNetworkCapabilities(network) ?: return@runCatching false
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        }.getOrDefault(false)
+
+        healthCheckedAt = System.currentTimeMillis()
     }
 
     private fun openPairingPage() {
@@ -985,6 +1041,7 @@ class MainActivity : ComponentActivity() {
         isRelayRunning = false
         relayConnectionState = "stopped"
         statusMessage = preferences.relayStatusMessage
+        refreshHealthSignals()
     }
 
     companion object {
