@@ -269,18 +269,18 @@ private fun AnimatedTajerTrackMark(
         // The SMS bubble is part of the phone-specific mark, placed beside
         // the route without covering the path or destination node.
         val bubble = Path().apply {
-            moveTo(374f, 286f)
-            lineTo(425f, 286f)
-            quadraticTo(440f, 286f, 440f, 301f)
-            lineTo(440f, 326f)
-            quadraticTo(440f, 341f, 425f, 341f)
-            lineTo(405f, 341f)
-            lineTo(388f, 355f)
-            lineTo(388f, 341f)
-            lineTo(374f, 341f)
-            quadraticTo(359f, 341f, 359f, 326f)
-            lineTo(359f, 301f)
-            quadraticTo(359f, 286f, 374f, 286f)
+            moveTo(256f, 285f)
+            lineTo(307f, 285f)
+            quadraticTo(322f, 285f, 322f, 300f)
+            lineTo(322f, 325f)
+            quadraticTo(322f, 340f, 307f, 340f)
+            lineTo(287f, 340f)
+            lineTo(270f, 354f)
+            lineTo(270f, 340f)
+            lineTo(256f, 340f)
+            quadraticTo(241f, 340f, 241f, 325f)
+            lineTo(241f, 300f)
+            quadraticTo(241f, 285f, 256f, 285f)
             close()
         }
         drawPath(bubble, clay.copy(alpha = destinationProgress.coerceIn(0f, 1f)))
@@ -291,11 +291,11 @@ private fun AnimatedTajerTrackMark(
         )
         if (destinationProgress > 0f) {
             val dotsAlpha = destinationProgress.coerceIn(0f, 1f)
-            listOf(380f, 399f, 418f).forEach { dotX ->
+            listOf(262f, 281f, 300f).forEach { dotX ->
                 drawCircle(
                     color = routeColor.copy(alpha = dotsAlpha),
                     radius = 4f * unit,
-                    center = Offset(dotX, 313f)
+                    center = Offset(dotX, 312f)
                 )
             }
         }

@@ -25,5 +25,5 @@
         android:strokeColor="#FFFFFFFF"
         android:strokeWidth="1.35"
         android:strokeLineJoin="round"
-        android:pathData="M73,60 H83.8 A3.4,3.4 0 0 1 87.2,63.4 V69 A3.4,3.4 0 0 1 83.8,72.4 H79 L73.9,76 V72.4 H73 A3.4,3.4 0 0 1 69.6,69 V63.4 A3.4,3.4 0 0 1 73,60 Z" />
+        android:pathData="M55,59 H65.8 A3.4,3.4 0 0 1 69.2,62.4 V68 A3.4,3.4 0 0 1 65.8,71.4 H61 L55.9,75 V71.4 H55 A3.4,3.4 0 0 1 51.6,68 V62.4 A3.4,3.4 0 0 1 55,59 Z" />
 </vector>
