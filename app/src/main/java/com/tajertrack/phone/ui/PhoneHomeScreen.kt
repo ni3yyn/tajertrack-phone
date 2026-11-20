@@ -937,11 +937,23 @@ private fun HomePage(
                         fontWeight = FontWeight.Medium
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier
-                                .size(7.dp)
-                                .background(if (relayRunning) Color(0xFF9ED3A7) else Color(0xFFD8A58E))
-                        )
+                        when (relayConnectionState) {
+                            "connected", "sending", "reporting" -> StatusMark(
+                                passed = true,
+                                tint = Color(0xFFBFE3C2),
+                                size = 17.dp
+                            )
+                            "offline", "needs_repair", "needs_pairing", "needs_user_start", "attention" -> StatusMark(
+                                passed = false,
+                                tint = Color(0xFFFFC8B8),
+                                size = 17.dp
+                            )
+                            else -> Box(
+                                Modifier
+                                    .size(7.dp)
+                                    .background(Color(0xFFD8A58E), RectangleShape)
+                            )
+                        }
                         Spacer(Modifier.width(7.dp))
                         Text(
                             relayConnectionLabel(relayConnectionState, relayRunning),
@@ -1070,12 +1082,22 @@ private fun HeroStatus(title: String, value: String, active: Boolean) {
     Column {
         Text(title, color = Color(0xFFC5D4C7), fontSize = 12.sp)
         Spacer(Modifier.height(5.dp))
-        Text(
-            value,
-            color = if (active) Color(0xFFBFE3C2) else Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                value,
+                color = if (active) Color(0xFFBFE3C2) else Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            StatusMark(
+                passed = active,
+                tint = if (active) Color(0xFFBFE3C2) else Color(0xFFFFC8B8),
+                size = 18.dp
+            )
+        }
     }
 }
 
@@ -1110,7 +1132,10 @@ private fun ConnectionPage(
         ) {
             Column(Modifier.padding(19.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Link, contentDescription = null, tint = TajerForest, modifier = Modifier.size(22.dp))
+                    StatusMark(
+                        passed = connected,
+                        size = 23.dp
+                    )
                     Spacer(Modifier.width(11.dp))
                     Column {
                         Text(

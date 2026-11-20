@@ -229,7 +229,11 @@ internal fun DeviceHealthPage(
 
         Spacer(Modifier.height(21.dp))
         DeviceHealthSection("معلومات الهاتف والتطبيق")
-        DeviceHealthRow("المتجر المرتبط", storeName.ifBlank { if (connected) "متجر مرتبط" else "غير مرتبط" })
+        DeviceHealthRow(
+            "المتجر المرتبط",
+            storeName.ifBlank { if (connected) "متجر مرتبط" else "غير مرتبط" },
+            positive = connected
+        )
         DeviceHealthRow("الجهاز", deviceName)
         DeviceHealthRow("إصدار Android", androidVersion)
         DeviceHealthRow("إصدار تاجر تراك فون", appVersion)

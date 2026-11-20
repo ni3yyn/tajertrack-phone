@@ -15,12 +15,13 @@ import androidx.compose.ui.unit.dp
 internal fun StatusMark(
     passed: Boolean,
     modifier: Modifier = Modifier,
-    size: Dp = 18.dp
+    size: Dp = 18.dp,
+    tint: Color? = null
 ) {
     Icon(
         imageVector = if (passed) Icons.Filled.CheckCircle else Icons.Filled.Cancel,
         contentDescription = if (passed) "سليم" else "غير سليم",
-        tint = if (passed) Color(0xFF287A45) else Color(0xFFB74443),
+        tint = tint ?: if (passed) Color(0xFF287A45) else Color(0xFFB74443),
         modifier = modifier.size(size)
     )
 }
