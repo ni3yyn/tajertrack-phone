@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
     private var statusSyncJob: Job? = null
     private var managerDeviceRefreshJob: Job? = null
     private var lastObservedRelayStatusAt = 0L
+    private var lastHealthReportRequestedAt = 0L
     private var storeName by mutableStateOf("")
     private var isManager by mutableStateOf(false)
     private var isCreatingInvite by mutableStateOf(false)
@@ -269,6 +270,7 @@ class MainActivity : ComponentActivity() {
                     statusMessage = preferences.relayStatusMessage
                     lastObservedRelayStatusAt = updatedAt
                 }
+                reportCurrentDeviceHealth()
                 delay(1_500L)
             }
         }
@@ -808,6 +810,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun reportCurrentDeviceHealth(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastHealthReportRequestedAt < 60_000L) return
+        lastHealthReportRequestedAt = now
         val profiles = tokenStore.readProfiles().distinctBy { it.deviceId }
         if (profiles.isEmpty()) return
         lifecycleScope.launch(Dispatchers.IO) {
