@@ -160,13 +160,15 @@ class SmsGatewayService : Service() {
                 }
 
                 profiles.forEach { profile ->
-                    RemoteDeviceHealthReporter.reportIfDue(
-                        context = this@SmsGatewayService,
-                        preferences = preferences,
-                        api = api,
-                        profile = profile,
-                        relayRunning = isRunning
-                    )
+                    serviceScope.launch {
+                        RemoteDeviceHealthReporter.reportIfDue(
+                            context = this@SmsGatewayService,
+                            preferences = preferences,
+                            api = api,
+                            profile = profile,
+                            relayRunning = isRunning
+                        )
+                    }
                 }
 
                 if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
