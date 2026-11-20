@@ -1,7 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path android:fillColor="#2D5640" android:pathData="M0,0 H108 V108 H0 Z" />
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- Adaptive icons are masked by Android; keep the gradient full-bleed. -->
+    <path android:pathData="M0,0 H512 V512 H0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="0"
+                android:endY="512">
+                <item android:offset="0" android:color="#2D5640" />
+                <item android:offset="1" android:color="#223F2F" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#1FFFFFFF"
+        android:strokeWidth="4"
+        android:pathData="M112,2 H400 A110,110 0 0 1 510,112 V400 A110,110 0 0 1 400,510 H112 A110,110 0 0 1 2,400 V112 A110,110 0 0 1 112,2 Z" />
 </vector>

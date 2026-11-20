@@ -38,7 +38,7 @@ fun PhoneSplashScreen() {
     val originProgress = remember { Animatable(0f) }
     val stationProgress = remember { Animatable(0f) }
     val destinationProgress = remember { Animatable(0f) }
-    val parcelProgress = remember { Animatable(0f) }
+    val checkProgress = remember { Animatable(0f) }
     var brandVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -74,9 +74,9 @@ fun PhoneSplashScreen() {
             )
         }
         launch {
-            parcelProgress.animateTo(
+            checkProgress.animateTo(
                 1f,
-                animationSpec = tween(900, delayMillis = 1_950, easing = FastOutSlowInEasing)
+                animationSpec = tween(420, delayMillis = 1_950, easing = FastOutSlowInEasing)
             )
         }
         launch {
@@ -95,8 +95,7 @@ fun PhoneSplashScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Tile, route, parcel and message bubble are drawn by one Canvas
-            // in a single 512x512 coordinate system. Nothing can drift outside.
+            // The splash now uses the repository's original route-and-checkmark SVG mark.
             TajerTrackBrandMark(
                 modifier = Modifier.size(116.dp),
                 logoScale = logoScale.value,
@@ -104,8 +103,7 @@ fun PhoneSplashScreen() {
                 originProgress = originProgress.value,
                 stationProgress = stationProgress.value,
                 destinationProgress = destinationProgress.value,
-                parcelProgress = parcelProgress.value,
-                showParcel = true
+                checkProgress = checkProgress.value
             )
             Spacer(Modifier.height(24.dp))
             SplashBrandText(visible = brandVisible)

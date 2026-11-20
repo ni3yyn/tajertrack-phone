@@ -1,47 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="512"
     android:viewportHeight="512">
-    <path
-        android:fillColor="#2D5640"
-        android:pathData="M112,0 H400 A112,112 0 0 1 512,112 V400 A112,112 0 0 1 400,512 H112 A112,112 0 0 1 0,400 V112 A112,112 0 0 1 112,0 Z" />
+
+    <!-- Exact square-tile treatment from apps/web/public/icons/tajertrack-icon.svg. -->
+    <path android:pathData="M112,0 H400 A112,112 0 0 1 512,112 V400 A112,112 0 0 1 400,512 H112 A112,112 0 0 1 0,400 V112 A112,112 0 0 1 112,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="0"
+                android:endY="512">
+                <item android:offset="0" android:color="#2D5640" />
+                <item android:offset="1" android:color="#223F2F" />
+            </gradient>
+        </aapt:attr>
+    </path>
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#26FFFEFA"
-        android:strokeWidth="3"
+        android:strokeColor="#1FFFFFFF"
+        android:strokeWidth="4"
         android:pathData="M112,2 H400 A110,110 0 0 1 510,112 V400 A110,110 0 0 1 400,510 H112 A110,110 0 0 1 2,400 V112 A110,110 0 0 1 112,2 Z" />
 
-    <!-- Match the adaptive icon's generous inner margin in the flat fallback too. -->
-    <group android:scaleX="0.78" android:scaleY="0.78" android:pivotX="256" android:pivotY="256">
-    <group android:scaleX="0.82" android:scaleY="0.82" android:pivotX="256" android:pivotY="256">
-        <group android:scaleX="1.45" android:scaleY="1.45" android:translateX="-112.3" android:translateY="-120.275">
-            <path
-                android:fillColor="#00000000"
-                android:strokeColor="#FFFEFA"
-                android:strokeWidth="28"
-                android:strokeLineCap="round"
-                android:strokeLineJoin="round"
-                android:pathData="M156,160 H316 A48,48 0 0 1 316,256 H196 A48,48 0 0 0 196,352 H344" />
-            <path android:fillColor="#D57955" android:pathData="M182,160 A26,26 0 1 1 130,160 A26,26 0 1 1 182,160 Z" />
-            <path android:fillColor="#223F2F" android:pathData="M371,208 A7,7 0 1 1 357,208 A7,7 0 1 1 371,208 Z" />
-            <path android:fillColor="#223F2F" android:pathData="M155,304 A7,7 0 1 1 141,304 A7,7 0 1 1 155,304 Z" />
-            <path
-                android:fillColor="#223F2F"
-                android:strokeColor="#FFFEFA"
-                android:strokeWidth="14"
-                android:pathData="M370,352 A26,26 0 1 1 318,352 A26,26 0 1 1 370,352 Z" />
-        </group>
-        <!-- SMS companion bubble, kept clear of the delivery route. -->
+    <group
+        android:scaleX="1.45"
+        android:scaleY="1.45"
+        android:translateX="-112.3"
+        android:translateY="-120.275">
         <path
-            android:fillColor="#D57955"
+            android:fillColor="#00000000"
             android:strokeColor="#FFFEFA"
-            android:strokeWidth="7"
+            android:strokeWidth="28"
+            android:strokeLineCap="round"
             android:strokeLineJoin="round"
-            android:pathData="M350,276 H393 A14,14 0 0 1 407,290 V315 A14,14 0 0 1 393,329 H373 L355,343 V329 H350 A14,14 0 0 1 336,315 V290 A14,14 0 0 1 350,276 Z" />
-        <path android:fillColor="#FFFEFA" android:pathData="M360,302 A4,4 0 1 1 352,302 A4,4 0 1 1 360,302 Z" />
-        <path android:fillColor="#FFFEFA" android:pathData="M376,302 A4,4 0 1 1 368,302 A4,4 0 1 1 376,302 Z" />
-        <path android:fillColor="#FFFEFA" android:pathData="M392,302 A4,4 0 1 1 384,302 A4,4 0 1 1 392,302 Z" />
-    </group>
+            android:pathData="M156,160 H316 A48,48 0 0 1 316,256 H196 A48,48 0 0 0 196,352 H344" />
+        <path android:fillColor="#D57955" android:pathData="M373,208 A9,9 0 1 1 355,208 A9,9 0 1 1 373,208 Z" />
+        <path android:fillColor="#D57955" android:pathData="M157,304 A9,9 0 1 1 139,304 A9,9 0 1 1 157,304 Z" />
+        <path android:fillColor="#D57955" android:pathData="M182,160 A26,26 0 1 1 130,160 A26,26 0 1 1 182,160 Z" />
+        <path android:fillColor="#FFFEFA" android:pathData="M370,352 A26,26 0 1 1 318,352 A26,26 0 1 1 370,352 Z" />
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#223F2F"
+            android:strokeWidth="6"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M334,353 L341,360 L354,346" />
     </group>
 </vector>

@@ -1,22 +1,20 @@
 package com.tajertrack.phone.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.unit.dp
 
 private val MarkForestTop = Color(0xFF2D5640)
 private val MarkForestBottom = Color(0xFF223F2F)
@@ -24,9 +22,8 @@ private val MarkIvory = Color(0xFFFFFEFA)
 private val MarkClay = Color(0xFFD57955)
 
 /**
- * One shared TajerTrack mark for the app header, drawer, dialogs, About page,
- * and splash screen. The tile and every foreground detail share one Canvas
- * and one coordinate system, so the route cannot drift outside the tile.
+ * Shared native rendering of apps/web/public/icons/tajertrack-icon.svg.
+ * The app launcher and the in-app mark use the same route, nodes and checkmark.
  */
 @Composable
 internal fun TajerTrackBrandMark(
@@ -36,14 +33,10 @@ internal fun TajerTrackBrandMark(
     originProgress: Float = 1f,
     stationProgress: Float = 1f,
     destinationProgress: Float = 1f,
-    parcelProgress: Float = 0f,
-    showParcel: Boolean = false
+    checkProgress: Float = destinationProgress
 ) {
     val route = remember { tajerTrackRoutePath() }
-    val bubble = remember { tajerTrackBubblePath() }
-    val pathMeasure = remember(route) {
-        PathMeasure().apply { setPath(route, forceClosed = false) }
-    }
+    val check = remember { tajerTrackCheckPath() }
 
     Canvas(
         modifier = modifier.graphicsLayer {
@@ -52,14 +45,13 @@ internal fun TajerTrackBrandMark(
         }
     ) {
         val unit = size.minDimension / 512f
-        val tileCorner = 112f * unit
         val routeAlpha = routeProgress.coerceIn(0f, 1f)
         val originAlpha = originProgress.coerceIn(0f, 1f)
         val stationsAlpha = stationProgress.coerceIn(0f, 1f)
         val destinationAlpha = destinationProgress.coerceIn(0f, 1f)
+        val checkAlpha = checkProgress.coerceIn(0f, 1f) * destinationAlpha
 
-        // Draw the website's full background tile first; the entire route mark
-        // is then painted inside this same 512-unit canvas.
+        // Exact SVG tile gradient and 112-unit rounded corner.
         drawRoundRect(
             brush = Brush.verticalGradient(
                 colors = listOf(MarkForestTop, MarkForestBottom),
@@ -67,13 +59,14 @@ internal fun TajerTrackBrandMark(
                 endY = size.height
             ),
             size = size,
-            cornerRadius = CornerRadius(tileCorner, tileCorner)
+            cornerRadius = CornerRadius(112f * unit, 112f * unit)
         )
         drawRoundRect(
-            color = Color.White.copy(alpha = 0.07f),
-            size = size,
-            cornerRadius = CornerRadius(tileCorner, tileCorner),
-            style = Stroke(width = 3f * unit)
+            color = Color.White.copy(alpha = 0.12f),
+            topLeft = Offset(2f * unit, 2f * unit),
+            size = Size(size.width - 4f * unit, size.height - 4f * unit),
+            cornerRadius = CornerRadius(110f * unit, 110f * unit),
+            style = Stroke(width = 4f * unit)
         )
 
         drawPath(
@@ -93,9 +86,9 @@ internal fun TajerTrackBrandMark(
         val destination = markPoint(344f, 352f)
 
         if (stationsAlpha > 0f) {
-            val radius = 7f * 1.45f * unit * stationsAlpha
-            drawCircle(MarkForestBottom, radius, hub)
-            drawCircle(MarkForestBottom, radius, outForDelivery)
+            val radius = 9f * 1.45f * unit * stationsAlpha
+            drawCircle(MarkClay, radius, hub)
+            drawCircle(MarkClay, radius, outForDelivery)
         }
 
         if (originAlpha > 0f) {
@@ -107,73 +100,20 @@ internal fun TajerTrackBrandMark(
         }
 
         if (destinationAlpha > 0f) {
-            val reveal = destinationAlpha
-            drawCircle(
-                color = MarkForestBottom,
-                radius = 26f * 1.45f * unit * reveal,
-                center = destination
-            )
             drawCircle(
                 color = MarkIvory,
-                radius = 26f * 1.45f * unit * reveal,
-                center = destination,
-                style = Stroke(width = 14f * 1.45f * unit * reveal)
-            )
-        }
-
-        // The small speech bubble sits in the open lower-right space of the
-        // route, not outside or beside the green tile.
-        if (destinationAlpha > 0f) {
-            drawPath(
-                path = bubble,
-                color = MarkClay.copy(alpha = destinationAlpha)
-            )
-            drawPath(
-                path = bubble,
-                color = MarkIvory.copy(alpha = destinationAlpha),
-                style = Stroke(width = 4.5f * unit, join = StrokeJoin.Round)
-            )
-            listOf(262f, 281f, 300f).forEach { dotX ->
-                drawCircle(
-                    color = MarkIvory.copy(alpha = destinationAlpha),
-                    radius = 4f * unit,
-                    center = Offset(dotX, 312f)
-                )
-            }
-        }
-
-        if (showParcel && parcelProgress > 0f && parcelProgress < 1f) {
-            val position = pathMeasure.getPosition(pathMeasure.length * parcelProgress.coerceIn(0f, 1f))
-            drawCircle(
-                color = MarkClay,
-                radius = 19f * 1.45f * unit,
-                center = position
-            )
-            drawCircle(
-                color = MarkForestBottom,
-                radius = 19f * 1.45f * unit,
-                center = position,
-                style = Stroke(width = 7f * 1.45f * unit)
-            )
-        }
-
-        if (showParcel && parcelProgress >= 0.96f) {
-            val arrival = ((parcelProgress - 0.96f) / 0.04f).coerceIn(0f, 1f)
-            drawCircle(
-                color = MarkIvory,
-                radius = 33f * unit * arrival,
+                radius = 26f * 1.45f * unit * destinationAlpha,
                 center = destination
             )
-            val check = Path().apply {
-                moveTo(destination.x - 14f * unit, destination.y + 1f * unit)
-                lineTo(destination.x - 3f * unit, destination.y + 12f * unit)
-                lineTo(destination.x + 18f * unit, destination.y - 14f * unit)
-            }
+        }
+
+        if (checkAlpha > 0f) {
             drawPath(
                 path = check,
                 color = MarkForestBottom,
+                alpha = checkAlpha,
                 style = Stroke(
-                    width = 7f * unit * arrival,
+                    width = 6f * 1.45f * unit,
                     cap = StrokeCap.Round,
                     join = StrokeJoin.Round
                 )
@@ -212,18 +152,13 @@ private fun tajerTrackRoutePath(): Path {
     }
 }
 
-private fun tajerTrackBubblePath(): Path = Path().apply {
-    moveTo(256f, 285f)
-    lineTo(307f, 285f)
-    quadraticTo(322f, 285f, 322f, 300f)
-    lineTo(322f, 325f)
-    quadraticTo(322f, 340f, 307f, 340f)
-    lineTo(287f, 340f)
-    lineTo(270f, 354f)
-    lineTo(270f, 340f)
-    lineTo(256f, 340f)
-    quadraticTo(241f, 340f, 241f, 325f)
-    lineTo(241f, 300f)
-    quadraticTo(241f, 285f, 256f, 285f)
-    close()
+private fun tajerTrackCheckPath(): Path {
+    fun x(value: Float) = (value - 254f) * 1.45f + 256f
+    fun y(value: Float) = (value - 259.5f) * 1.45f + 256f
+
+    return Path().apply {
+        moveTo(x(334f), y(353f))
+        lineTo(x(341f), y(360f))
+        lineTo(x(354f), y(346f))
+    }
 }
