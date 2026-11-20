@@ -697,14 +697,6 @@ private fun PhoneNavigationDrawer(
         }
         Spacer(Modifier.height(24.dp))
         HorizontalDivider(color = TajerBorder)
-        Spacer(Modifier.height(17.dp))
-        Text(
-            "القائمة الرئيسية",
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 7.dp),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TajerMuted
-        )
         DrawerItem(
             title = "الرئيسية",
             icon = Icons.Outlined.Home,
