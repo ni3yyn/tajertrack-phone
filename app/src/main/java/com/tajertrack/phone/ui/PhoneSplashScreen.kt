@@ -34,11 +34,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun PhoneSplashScreen() {
     val logoScale = remember { Animatable(0.88f) }
-    val routeProgress = remember { Animatable(0f) }
-    val originProgress = remember { Animatable(0f) }
-    val stationProgress = remember { Animatable(0f) }
-    val destinationProgress = remember { Animatable(0f) }
-    val checkProgress = remember { Animatable(0f) }
     var brandVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -48,36 +43,6 @@ fun PhoneSplashScreen() {
                 animationSpec = tween(620, easing = FastOutSlowInEasing)
             )
             logoScale.animateTo(1f, spring(dampingRatio = 0.72f, stiffness = 420f))
-        }
-        launch {
-            routeProgress.animateTo(
-                1f,
-                animationSpec = tween(1_420, delayMillis = 190, easing = FastOutSlowInEasing)
-            )
-        }
-        launch {
-            originProgress.animateTo(
-                1f,
-                animationSpec = tween(360, delayMillis = 560, easing = FastOutSlowInEasing)
-            )
-        }
-        launch {
-            stationProgress.animateTo(
-                1f,
-                animationSpec = tween(330, delayMillis = 1_040, easing = FastOutSlowInEasing)
-            )
-        }
-        launch {
-            destinationProgress.animateTo(
-                1f,
-                animationSpec = tween(360, delayMillis = 1_460, easing = FastOutSlowInEasing)
-            )
-        }
-        launch {
-            checkProgress.animateTo(
-                1f,
-                animationSpec = tween(420, delayMillis = 1_950, easing = FastOutSlowInEasing)
-            )
         }
         launch {
             delay(480)
@@ -95,15 +60,10 @@ fun PhoneSplashScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // The splash now uses the repository's original route-and-checkmark SVG mark.
+            // Render the exact launcher icon layers; only the whole mark animates.
             TajerTrackBrandMark(
                 modifier = Modifier.size(116.dp),
-                logoScale = logoScale.value,
-                routeProgress = routeProgress.value,
-                originProgress = originProgress.value,
-                stationProgress = stationProgress.value,
-                destinationProgress = destinationProgress.value,
-                checkProgress = checkProgress.value
+                logoScale = logoScale.value
             )
             Spacer(Modifier.height(24.dp))
             SplashBrandText(visible = brandVisible)
