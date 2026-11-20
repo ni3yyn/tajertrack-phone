@@ -128,42 +128,47 @@ fun PhoneSplashScreen() {
                 parcelProgress = parcelProgress.value
             )
             Spacer(Modifier.height(24.dp))
-            Box(
-                modifier = Modifier.height(94.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                AnimatedVisibility(
-                    visible = brandVisible,
-                    enter = fadeIn(tween(480)) + slideInVertically(
-                        initialOffsetY = { it / 4 },
-                        animationSpec = tween(480, easing = FastOutSlowInEasing)
-                    )
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "تاجر تراك",
-                            color = TajerInk,
-                            fontSize = 29.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.5).sp
-                        )
-                        Spacer(Modifier.height(9.dp))
-                        Text(
-                            text = "إرسال روابط التتبع من هاتفك",
-                            color = TajerMuted,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(Modifier.height(7.dp))
-                        Text(
-                            text = "تطبيق الهاتف المرتبط بمتجرك",
-                            color = TajerMuted.copy(alpha = 0.72f),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Normal
-                        )
-                    }
-                }
+            SplashBrandText(visible = brandVisible)
+        }
+    }
+}
+
+@Composable
+private fun SplashBrandText(visible: Boolean) {
+    Box(
+        modifier = Modifier.height(94.dp),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(480)) + slideInVertically(
+                initialOffsetY = { it / 4 },
+                animationSpec = tween(480, easing = FastOutSlowInEasing)
+            )
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "تاجر تراك",
+                    color = TajerInk,
+                    fontSize = 29.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.5).sp
+                )
+                Spacer(Modifier.height(9.dp))
+                Text(
+                    text = "إرسال روابط التتبع من هاتفك",
+                    color = TajerMuted,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    text = "تطبيق الهاتف المرتبط بمتجرك",
+                    color = TajerMuted.copy(alpha = 0.72f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal
+                )
             }
         }
     }

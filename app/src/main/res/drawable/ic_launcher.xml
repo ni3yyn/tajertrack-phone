@@ -1,40 +1,44 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp"
-    android:height="48dp"
-    android:viewportWidth="280"
-    android:viewportHeight="280">
-
-    <!-- TajerTrack forest-green brand tile -->
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
     <path
         android:fillColor="#2D5640"
-        android:pathData="M28,0 H252 A28,28 0,0 1 280,28 V252 A28,28 0,0 1 252,280 H28 A28,28 0,0 1 0,252 V28 A28,28 0,0 1 28,0 Z" />
+        android:pathData="M112,0 H400 A112,112 0 0 1 512,112 V400 A112,112 0 0 1 400,512 H112 A112,112 0 0 1 0,400 V112 A112,112 0 0 1 112,0 Z" />
     <path
         android:fillColor="#00000000"
         android:strokeColor="#26FFFEFA"
-        android:strokeWidth="2"
-        android:pathData="M28,1 H252 A27,27 0,0 1 279,28 V252 A27,27 0,0 1 252,279 H28 A27,27 0,0 1 1,252 V28 A27,27 0,0 1 28,1 Z" />
+        android:strokeWidth="3"
+        android:pathData="M112,2 H400 A110,110 0 0 1 510,112 V400 A110,110 0 0 1 400,510 H112 A110,110 0 0 1 2,400 V112 A110,110 0 0 1 112,2 Z" />
 
-    <!-- The original TajerTrack delivery-route mark -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFEFA"
-        android:strokeWidth="34"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M36,40 H196 A48,48 0,0 1 196,136 H76 A48,48 0,0 0 76,232 H224" />
-
-    <!-- Origin and destination nodes -->
-    <path android:fillColor="#D57955" android:pathData="M56,40 A20,20 0,1 1 16,40 A20,20 0,1 1 56,40 Z" />
-    <path android:fillColor="#FFFEFA" android:pathData="M244,232 A20,20 0,1 1 204,232 A20,20 0,1 1 244,232 Z" />
-    <path
-        android:fillColor="#223F2F"
-        android:pathData="M214,232 L221,239 L235,223 L239,227 L221,247 L210,236 Z" />
-
-    <!-- SMS companion badge: speech bubble with three message dots -->
-    <path
-        android:fillColor="#D57955"
-        android:pathData="M191,157 H239 A12,12 0,0 1 251,169 V188 A12,12 0,0 1 239,200 H218 L205,210 V200 H191 A12,12 0,0 1 179,188 V169 A12,12 0,0 1 191,157 Z" />
-    <path android:fillColor="#FFFEFA" android:pathData="M201,178 A4,4 0,1 1 193,178 A4,4 0,1 1 201,178 Z" />
-    <path android:fillColor="#FFFEFA" android:pathData="M219,178 A4,4 0,1 1 211,178 A4,4 0,1 1 219,178 Z" />
-    <path android:fillColor="#FFFEFA" android:pathData="M237,178 A4,4 0,1 1 229,178 A4,4 0,1 1 237,178 Z" />
+    <group android:scaleX="0.82" android:scaleY="0.82" android:pivotX="256" android:pivotY="256">
+        <group android:scaleX="1.45" android:scaleY="1.45" android:translateX="-112.3" android:translateY="-120.275">
+            <path
+                android:fillColor="#00000000"
+                android:strokeColor="#FFFEFA"
+                android:strokeWidth="28"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:pathData="M156,160 H316 A48,48 0 0 1 316,256 H196 A48,48 0 0 0 196,352 H344" />
+            <path android:fillColor="#D57955" android:pathData="M182,160 A26,26 0 1 1 130,160 A26,26 0 1 1 182,160 Z" />
+            <path android:fillColor="#223F2F" android:pathData="M371,208 A7,7 0 1 1 357,208 A7,7 0 1 1 371,208 Z" />
+            <path android:fillColor="#223F2F" android:pathData="M155,304 A7,7 0 1 1 141,304 A7,7 0 1 1 155,304 Z" />
+            <path
+                android:fillColor="#223F2F"
+                android:strokeColor="#FFFEFA"
+                android:strokeWidth="14"
+                android:pathData="M370,352 A26,26 0 1 1 318,352 A26,26 0 1 1 370,352 Z" />
+        </group>
+        <!-- SMS companion bubble, kept clear of the delivery route. -->
+        <path
+            android:fillColor="#D57955"
+            android:strokeColor="#FFFEFA"
+            android:strokeWidth="7"
+            android:strokeLineJoin="round"
+            android:pathData="M350,276 H393 A14,14 0 0 1 407,290 V315 A14,14 0 0 1 393,329 H373 L355,343 V329 H350 A14,14 0 0 1 336,315 V290 A14,14 0 0 1 350,276 Z" />
+        <path android:fillColor="#FFFEFA" android:pathData="M360,302 A4,4 0 1 1 352,302 A4,4 0 1 1 360,302 Z" />
+        <path android:fillColor="#FFFEFA" android:pathData="M376,302 A4,4 0 1 1 368,302 A4,4 0 1 1 376,302 Z" />
+        <path android:fillColor="#FFFEFA" android:pathData="M392,302 A4,4 0 1 1 384,302 A4,4 0 1 1 392,302 Z" />
+    </group>
 </vector>
