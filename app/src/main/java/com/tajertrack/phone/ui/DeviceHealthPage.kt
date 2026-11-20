@@ -146,12 +146,20 @@ internal fun DeviceHealthPage(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("التقييم العام", color = TajerMuted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                    Text(
-                        if (healthy) "سليم" else if (summaryColor == Color(0xFF9D4D32)) "يحتاج مراجعة" else "غير مكتمل",
-                        color = summaryColor,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (!healthy) {
+                            Text(
+                                if (summaryColor == Color(0xFF9D4D32)) "يحتاج مراجعة" else "غير مكتمل",
+                                color = summaryColor,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        StatusMark(passed = healthy, size = 23.dp)
+                    }
                 }
                 Spacer(Modifier.height(11.dp))
                 Text(summaryTitle, color = summaryColor, fontSize = 20.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
@@ -265,18 +273,24 @@ private fun DeviceHealthRow(label: String, value: String, detail: String? = null
         ) {
             Text(label, modifier = Modifier.weight(1f), color = TajerMuted, fontSize = 13.sp, lineHeight = 20.sp)
             Spacer(Modifier.size(12.dp))
-            Text(
-                value,
-                color = when (positive) {
-                    true -> TajerForest
-                    false -> Color(0xFF9D4D32)
-                    null -> TajerInk
-                },
-                fontSize = 14.sp,
-                lineHeight = 21.sp,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.End
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    value,
+                    color = when (positive) {
+                        true -> TajerForest
+                        false -> Color(0xFF9D4D32)
+                        null -> TajerInk
+                    },
+                    fontSize = 14.sp,
+                    lineHeight = 21.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.End
+                )
+                positive?.let { StatusMark(passed = it, size = 19.dp) }
+            }
         }
         if (!detail.isNullOrBlank()) {
             Spacer(Modifier.height(3.dp))

@@ -107,14 +107,23 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
 
-private fun managerDeviceHealthStatus(device: ManagerSenderDevice): Pair<String, Color> {
-    if (device.revoked) return "ملغى" to TajerMuted
-    if (!device.enabled) return "موقوف من الإدارة" to TajerMuted
-    if (!device.healthReportingAvailable) return "تحديث قاعدة البيانات مطلوب" to Color(0xFF9A7040)
-    if (!device.isOnline) return "غير متصل" to TajerMuted
-    val report = device.healthReport ?: return "بانتظار أول تقرير" to Color(0xFF9A7040)
-    val reportedAt = parseRemoteHealthTimestamp(device.healthReportedAt) ?: return "وقت التقرير غير معروف" to Color(0xFF9A7040)
-    if (System.currentTimeMillis() - reportedAt > 180_000L) return "التقرير قديم" to Color(0xFF9A7040)
+private data class ManagerDeviceHealthStatus(
+    val label: String,
+    val color: Color,
+    val passed: Boolean? = null
+)
+
+private fun managerDeviceHealthStatus(device: ManagerSenderDevice): ManagerDeviceHealthStatus {
+    if (device.revoked) return ManagerDeviceHealthStatus("ملغى", TajerMuted)
+    if (!device.enabled) return ManagerDeviceHealthStatus("موقوف من الإدارة", TajerMuted)
+    if (!device.healthReportingAvailable) return ManagerDeviceHealthStatus("تحديث قاعدة البيانات مطلوب", Color(0xFF9A7040))
+    if (!device.isOnline) return ManagerDeviceHealthStatus("غير متصل", TajerMuted, false)
+    val report = device.healthReport ?: return ManagerDeviceHealthStatus("بانتظار أول تقرير", Color(0xFF9A7040))
+    val reportedAt = parseRemoteHealthTimestamp(device.healthReportedAt)
+        ?: return ManagerDeviceHealthStatus("وقت التقرير غير معروف", Color(0xFF9A7040))
+    if (System.currentTimeMillis() - reportedAt > 180_000L) {
+        return ManagerDeviceHealthStatus("التقرير قديم", Color(0xFF9A7040), false)
+    }
     val needsAttention = !report.internetValidated || !report.sendSmsGranted || !report.phoneStateGranted ||
         (report.notificationsRequired && !report.notificationsGranted) ||
         (report.relayEnabled && !report.relayServiceRunning) ||
@@ -123,9 +132,9 @@ private fun managerDeviceHealthStatus(device: ManagerSenderDevice): Pair<String,
         (report.relayEnabled && report.relayConnectionState in setOf(
             "offline", "needs_repair", "needs_pairing", "needs_user_start", "attention", "retrying"
         ))
-    if (needsAttention) return "يحتاج انتباه" to Color(0xFF9B563F)
-    if (!report.relayEnabled) return "الإرسال متوقف على الهاتف" to TajerMuted
-    return "سليم" to TajerForest
+    if (needsAttention) return ManagerDeviceHealthStatus("يحتاج انتباه", Color(0xFF9B563F), false)
+    if (!report.relayEnabled) return ManagerDeviceHealthStatus("الإرسال متوقف على الهاتف", TajerMuted)
+    return ManagerDeviceHealthStatus("سليم", TajerForest, true)
 }
 
 private fun parseRemoteHealthTimestamp(value: String?): Long? =
@@ -206,11 +215,17 @@ private fun RemoteHealthRow(label: String, value: String, positive: Boolean? = n
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
             Text(label, color = TajerMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(10.dp))
-            Text(value, color = when (positive) {
-                true -> TajerForest
-                false -> Color(0xFF9B563F)
-                null -> TajerInk
-            }, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(value, color = when (positive) {
+                    true -> TajerForest
+                    false -> Color(0xFF9B563F)
+                    null -> TajerInk
+                }, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End)
+                positive?.let { StatusMark(passed = it, size = 17.dp) }
+            }
         }
         HorizontalDivider(color = TajerBorder.copy(alpha = 0.75f))
     }
@@ -1944,19 +1959,15 @@ private fun DeviceManagementPage(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Box(
-                                            Modifier
-                                                .size(7.dp)
-                                                .background(
-                                                    when {
-                                                        device.revoked -> TajerMuted
-                                                        !device.enabled -> Color(0xFFB66B4F)
-                                                        device.isOnline -> Color(0xFF287A45)
-                                                        else -> TajerMuted.copy(alpha = 0.55f)
-                                                    },
-                                                    RectangleShape
-                                                )
-                                        )
+                                        if (device.revoked || !device.enabled) {
+                                            Box(
+                                                Modifier
+                                                    .size(7.dp)
+                                                    .background(TajerMuted, RectangleShape)
+                                            )
+                                        } else {
+                                            StatusMark(passed = device.isOnline, size = 17.dp)
+                                        }
                                         Text(
                                             when {
                                                 device.revoked -> "ملغى"
@@ -1982,7 +1993,13 @@ private fun DeviceManagementPage(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text("الصحة: ${healthStatus.first}", color = healthStatus.second, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    ) {
+                                        Text("الصحة: ${healthStatus.label}", color = healthStatus.color, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        healthStatus.passed?.let { StatusMark(passed = it, size = 17.dp) }
+                                    }
                                     Text(device.healthReportedAt?.let(::remoteHealthReportAge) ?: "لم يصل تقرير بعد", color = TajerMuted, fontSize = 11.sp)
                                 }
                                 TextButton(
@@ -2905,6 +2922,15 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
             else -> Color(0xFFF7E7E5)
         }
     }
+    val statusMark = when {
+        message.deliveryStatus == "delivered" -> true
+        message.deliveryStatus == "failed" -> false
+        message.deliveryStatus in setOf("pending", "unknown") -> null
+        message.status == "submitted" -> true
+        message.status in setOf("failed", "dead_letter", "expired", "skipped") -> false
+        else -> null
+    }
+
     val detailMessage = listOfNotNull(
         message.deliveryError?.takeIf(String::isNotBlank),
         message.errorMessage?.takeIf(String::isNotBlank)
@@ -2939,13 +2965,19 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
                 }
                 Spacer(Modifier.width(8.dp))
                 Surface(color = statusBackground, shape = RectangleShape) {
-                    Text(
-                        statusLabel,
+                    Row(
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-                        color = statusColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text(
+                            statusLabel,
+                            color = statusColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        statusMark?.let { StatusMark(passed = it, size = 16.dp) }
+                    }
                 }
             }
             Spacer(Modifier.height(11.dp))
