@@ -158,12 +158,12 @@ private fun RemoteDeviceHealthDetails(device: ManagerSenderDevice) {
         if (!device.healthReportingAvailable) {
             Text(
                 "أجهزة الإرسال ما زالت تعمل ويمكن إدارتها. لتفعيل تقارير الصحة عن بُعد، طبّق ترحيل قاعدة البيانات 20261120_native_sms_device_health.sql ثم حدّث قائمة الأجهزة.",
-                color = TajerMuted, fontSize = 10.sp, lineHeight = 17.sp, modifier = Modifier.padding(vertical = 9.dp)
+                color = TajerMuted, fontSize = 12.sp, lineHeight = 20.sp, modifier = Modifier.padding(vertical = 9.dp)
             )
         } else if (report == null) {
             Text(
                 "لم يصل تقرير صحي من هذا الهاتف بعد. افتح تاجر تراك فون على الهاتف المرتبط واتصل بالإنترنت، أو حدّث التطبيق إلى إصدار يدعم تقارير الصحة.",
-                color = TajerMuted, fontSize = 10.sp, lineHeight = 17.sp, modifier = Modifier.padding(vertical = 9.dp)
+                color = TajerMuted, fontSize = 12.sp, lineHeight = 20.sp, modifier = Modifier.padding(vertical = 9.dp)
             )
         } else {
             RemoteHealthRow("طراز الهاتف", report.model)
@@ -193,8 +193,8 @@ private fun RemoteDeviceHealthDetails(device: ManagerSenderDevice) {
             RemoteHealthRow("آخر ظهور للخادم", remoteHealthReportAge(device.lastSeenAt))
             if (report.diagnosticMessage.isNotBlank()) {
                 Spacer(Modifier.height(5.dp))
-                Text("آخر تشخيص من الهاتف", color = TajerMuted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                Text(report.diagnosticMessage, color = TajerInk, fontSize = 10.sp, lineHeight = 17.sp)
+                Text("آخر تشخيص من الهاتف", color = TajerMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(report.diagnosticMessage, color = TajerInk, fontSize = 12.sp, lineHeight = 20.sp)
             }
         }
     }
@@ -204,13 +204,13 @@ private fun RemoteDeviceHealthDetails(device: ManagerSenderDevice) {
 private fun RemoteHealthRow(label: String, value: String, positive: Boolean? = null) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-            Text(label, color = TajerMuted, fontSize = 10.sp, modifier = Modifier.weight(1f))
+            Text(label, color = TajerMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(10.dp))
             Text(value, color = when (positive) {
                 true -> TajerForest
                 false -> Color(0xFF9B563F)
                 null -> TajerInk
-            }, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End)
+            }, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End)
         }
         HorizontalDivider(color = TajerBorder.copy(alpha = 0.75f))
     }
@@ -407,13 +407,13 @@ fun PhoneHomeScreen(
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
                                         "تاجر تراك",
-                                        fontSize = 16.sp,
+                                        fontSize = 18.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = TajerInk
                                     )
                                     Text(
                                         pageTitle,
-                                        fontSize = 10.sp,
+                                        fontSize = 14.sp,
                                         color = TajerMuted,
                                         fontWeight = FontWeight.Medium
                                     )
@@ -664,8 +664,8 @@ private fun PhoneNavigationDrawer(
             BrandMark(modifier = Modifier.size(46.dp))
             Spacer(Modifier.width(13.dp))
             Column {
-                Text("تاجر تراك", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TajerInk)
-                Text("SMS PHONE", fontWeight = FontWeight.Medium, fontSize = 9.sp, letterSpacing = 1.5.sp, color = TajerMuted)
+                Text("تاجر تراك", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = TajerInk)
+                Text("SMS PHONE", fontWeight = FontWeight.Medium, fontSize = 11.sp, letterSpacing = 1.5.sp, color = TajerMuted)
             }
         }
         Spacer(Modifier.height(24.dp))
@@ -674,7 +674,7 @@ private fun PhoneNavigationDrawer(
         Text(
             "القائمة الرئيسية",
             modifier = Modifier.padding(horizontal = 22.dp, vertical = 7.dp),
-            fontSize = 10.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             color = TajerMuted
         )
@@ -761,7 +761,7 @@ private fun PhoneNavigationDrawer(
                 Spacer(Modifier.width(9.dp))
                 Text(
                     if (isCheckingForUpdates) "جارٍ التحقق من التحديثات..." else "التحقق من التحديثات",
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -771,8 +771,8 @@ private fun PhoneNavigationDrawer(
                 Text(
                     updateMessage,
                     color = if (availableUpdateVersion != null) TajerForest else TajerMuted,
-                    fontSize = 10.sp,
-                    lineHeight = 17.sp
+                    fontSize = 12.sp,
+                    lineHeight = 20.sp
                 )
             }
 
@@ -792,7 +792,7 @@ private fun PhoneNavigationDrawer(
                     Spacer(Modifier.width(9.dp))
                     Text(
                         "تنزيل الإصدار $availableUpdateVersion",
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -808,15 +808,15 @@ private fun PhoneNavigationDrawer(
         Text(
             "تاجر تراك فون",
             modifier = Modifier.padding(horizontal = 22.dp),
-            fontSize = 11.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = TajerMuted
         )
         Text(
             "يرسل رابط التتبع مرة واحدة من شريحة هاتفك.",
             modifier = Modifier.padding(horizontal = 22.dp, vertical = 4.dp),
-            fontSize = 10.sp,
-            lineHeight = 18.sp,
+            fontSize = 12.sp,
+            lineHeight = 21.sp,
             color = TajerMuted
         )
     }
@@ -833,7 +833,7 @@ private fun DrawerItem(
         label = {
             Text(
                 title,
-                fontSize = 13.sp,
+                fontSize = 15.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
             )
         },
@@ -906,7 +906,7 @@ private fun HomePage(
                     Text(
                         "حالة الهاتف",
                         color = Color(0xFFDCE7DC),
-                        fontSize = 11.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -919,7 +919,7 @@ private fun HomePage(
                         Text(
                             relayConnectionLabel(relayConnectionState, relayRunning),
                             color = Color.White,
-                            fontSize = 10.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -928,8 +928,8 @@ private fun HomePage(
                 Text(
                     if (connected) storeName.ifBlank { "متجرك مرتبط" } else "هاتفك جاهز للربط",
                     color = Color.White,
-                    fontSize = 23.sp,
-                    lineHeight = 34.sp,
+                    fontSize = 25.sp,
+                    lineHeight = 36.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(8.dp))
@@ -940,8 +940,8 @@ private fun HomePage(
                         else -> "هذا الهاتف مرتبط كجهاز إرسال فقط. يمكنه إرسال رسائل التتبع، ولا يملك صلاحية إدارة الدعوات أو الهواتف الأخرى."
                     },
                     color = Color(0xFFDCE7DC),
-                    fontSize = 12.sp,
-                    lineHeight = 21.sp
+                    fontSize = 14.sp,
+                    lineHeight = 24.sp
                 )
                 Spacer(Modifier.height(22.dp))
                 HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
@@ -963,7 +963,7 @@ private fun HomePage(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("عرض تفاصيل حالة الجهاز", color = Color(0xFFDCE7DC), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text("عرض تفاصيل حالة الجهاز", color = Color(0xFFDCE7DC), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.width(7.dp))
                     Icon(Icons.Outlined.Info, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
                 }
@@ -982,7 +982,7 @@ private fun HomePage(
             ) {
                 Text(
                     if (relayRunning) "إدارة إرسال الرسائل" else "الخطوة التالية: إعداد إرسال الرسائل",
-                    fontSize = 13.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -1032,7 +1032,7 @@ private fun HomePage(
             modifier = Modifier.fillMaxWidth(),
             color = TajerMuted,
             textAlign = TextAlign.Center,
-            fontSize = 10.sp
+            fontSize = 12.sp
         )
         Spacer(Modifier.height(12.dp))
     }
@@ -1041,12 +1041,12 @@ private fun HomePage(
 @Composable
 private fun HeroStatus(title: String, value: String, active: Boolean) {
     Column {
-        Text(title, color = Color(0xFFC5D4C7), fontSize = 10.sp)
+        Text(title, color = Color(0xFFC5D4C7), fontSize = 12.sp)
         Spacer(Modifier.height(5.dp))
         Text(
             value,
             color = if (active) Color(0xFFBFE3C2) else Color.White,
-            fontSize = 12.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold
         )
     }
@@ -1068,8 +1068,6 @@ private fun ConnectionPage(
             .padding(horizontal = 20.dp, vertical = 22.dp)
     ) {
         PageIntro(
-            number = "01",
-            title = if (connected) "متجرك مرتبط" else "اربط متجرك",
             subtitle = if (connected) {
                 "هذا الهاتف مرتبط بحساب متجرك. يمكنك متابعة إعداد إرسال الرسائل."
             } else {
@@ -1091,13 +1089,13 @@ private fun ConnectionPage(
                         Text(
                             if (connected) "تم ربط الحساب" else "لم يتم ربط المتجر بعد",
                             color = TajerInk,
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             if (connected) "يمكنك إعادة الربط عند الحاجة." else "اتبع الخطوات في المتصفح لإكمال الربط.",
                             color = TajerMuted,
-                            fontSize = 11.sp
+                            fontSize = 13.sp
                         )
                     }
                 }
@@ -1105,9 +1103,9 @@ private fun ConnectionPage(
                     Spacer(Modifier.height(18.dp))
                     HorizontalDivider(color = TajerBorder)
                     Spacer(Modifier.height(14.dp))
-                    Text("المتجر المرتبط", fontSize = 10.sp, color = TajerMuted)
+                    Text("المتجر المرتبط", fontSize = 12.sp, color = TajerMuted)
                     Spacer(Modifier.height(5.dp))
-                    Text(storeName, fontSize = 16.sp, color = TajerInk, fontWeight = FontWeight.Bold)
+                    Text(storeName, fontSize = 18.sp, color = TajerInk, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1122,7 +1120,7 @@ private fun ConnectionPage(
             ) {
                 Text(
                     "الخطوة التالية: إعداد إرسال الرسائل",
-                    fontSize = 13.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -1151,7 +1149,7 @@ private fun ConnectionPage(
                     }
                     Text(
                         if (pairing) "جارٍ إكمال الربط..." else "إعادة ربط الحساب",
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -1183,7 +1181,7 @@ private fun ConnectionPage(
                     }
                     Text(
                         if (pairing) "جارٍ إكمال الربط..." else "ربط المتجر",
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -1199,8 +1197,8 @@ private fun ConnectionPage(
                 Text(
                     "سيُفتح موقع تاجر تراك في المتصفح. سجّل الدخول ووافق على ربط هذا الهاتف، ثم ارجع إلى التطبيق.",
                     color = TajerMuted,
-                    fontSize = 11.sp,
-                    lineHeight = 20.sp
+                    fontSize = 13.sp,
+                    lineHeight = 23.sp
                 )
             }
         }
@@ -1248,8 +1246,6 @@ private fun SendingPage(
             .padding(horizontal = 20.dp, vertical = 22.dp)
     ) {
         PageIntro(
-            number = "02",
-            title = "إرسال الرسائل",
             subtitle = when {
                 !connected -> "اربط الهاتف بمتجرك أولاً لإعداد خدمة الرسائل."
                 simSetupUnlocked -> "اختر الشرائح التي تريد استخدامها، ثم شغّل الإرسال."
@@ -1277,7 +1273,7 @@ private fun SendingPage(
                 shape = RectangleShape,
                 colors = ButtonDefaults.buttonColors(containerColor = TajerForest)
             ) {
-                Text("الانتقال إلى ربط المتجر", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("الانتقال إلى ربط المتجر", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         } else {
             Spacer(Modifier.height(20.dp))
@@ -1292,11 +1288,11 @@ private fun SendingPage(
 
                         .padding(18.dp)
                 ) {
-                    Text("المتجر المرتبط", fontSize = 10.sp, color = TajerMuted)
+                    Text("المتجر المرتبط", fontSize = 12.sp, color = TajerMuted)
                     Spacer(Modifier.height(5.dp))
                     Text(
                         storeName.ifBlank { "متجرك" },
-                        fontSize = 15.sp,
+                        fontSize = 17.sp,
                         color = TajerInk,
                         fontWeight = FontWeight.Bold
                     )
@@ -1305,7 +1301,7 @@ private fun SendingPage(
                     Spacer(Modifier.height(17.dp))
                     Text(
                         if (simSetupUnlocked) "شرائح الإرسال" else "تفعيل إعداد الإرسال",
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         color = TajerInk,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -1317,8 +1313,8 @@ private fun SendingPage(
                             "اضغط على زر التفعيل أولاً واسمح بالأذونات المطلوبة. ستظهر شرائح الاتصال بعد الموافقة."
                         },
                         color = TajerMuted,
-                        fontSize = 11.sp,
-                        lineHeight = 20.sp
+                        fontSize = 13.sp,
+                        lineHeight = 23.sp
                     )
                     AnimatedVisibility(
                         visible = simSetupUnlocked,
@@ -1358,7 +1354,7 @@ private fun SendingPage(
                     border = BorderStroke(1.dp, TajerForest),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
                 ) {
-                    Text("إيقاف الإرسال", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("إيقاف الإرسال", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
             } else {
                 Button(
@@ -1380,7 +1376,7 @@ private fun SendingPage(
                             selectedSimId < 0 -> "اختر شريحة للمتابعة"
                             else -> "بدء إرسال الرسائل"
                         },
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -1421,7 +1417,7 @@ private fun SendingPage(
                             }
                             Text(
                                 if (testSmsSending) "جارٍ إرسال الرسالة التجريبية..." else if (alternateSimsEnabled) "اختبار الشريحة الأساسية" else "إرسال رسالة SMS تجريبية",
-                                fontSize = 13.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -1436,34 +1432,21 @@ private fun SendingPage(
 }
 
 @Composable
-private fun PageIntro(number: String, title: String, subtitle: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            number,
-            color = TajerClay,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp,
-            modifier = Modifier.padding(top = 5.dp)
-        )
-        Spacer(Modifier.width(13.dp))
-        Column {
-            Text(title, color = TajerInk, fontSize = 23.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(7.dp))
-            Text(subtitle, color = TajerMuted, fontSize = 12.sp, lineHeight = 21.sp)
-        }
-    }
+private fun PageIntro(subtitle: String) {
+    Text(
+        subtitle,
+        color = TajerMuted,
+        fontSize = 14.sp,
+        lineHeight = 24.sp
+    )
 }
 
 @Composable
 private fun SectionHeading(title: String, subtitle: String) {
     Column {
-        Text(title, color = TajerInk, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(title, color = TajerInk, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
-        Text(subtitle, color = TajerMuted, fontSize = 10.sp, lineHeight = 17.sp)
+        Text(subtitle, color = TajerMuted, fontSize = 12.sp, lineHeight = 20.sp)
     }
 }
 
@@ -1496,11 +1479,11 @@ private fun NativeActionRow(
             }
             Spacer(Modifier.width(13.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, fontSize = 12.sp, color = TajerInk, fontWeight = FontWeight.SemiBold)
+                Text(title, fontSize = 14.sp, color = TajerInk, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(4.dp))
-                Text(detail, fontSize = 10.sp, color = TajerMuted, lineHeight = 16.sp)
+                Text(detail, fontSize = 12.sp, color = TajerMuted, lineHeight = 19.sp)
             }
-            Text("فتح", fontSize = 10.sp, color = TajerMuted, fontWeight = FontWeight.SemiBold)
+            Text("فتح", fontSize = 12.sp, color = TajerMuted, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -1532,13 +1515,13 @@ private fun SimPicker(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("الشرائح المفعّلة", color = TajerMuted, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                    Text("الشرائح المفعّلة", color = TajerMuted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     Spacer(Modifier.height(3.dp))
                     Text(
                         summary,
                         color = if (enabledLabels.isEmpty()) TajerMuted else TajerForestDeep,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp,
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp,
                         fontWeight = if (enabledLabels.isEmpty()) FontWeight.Medium else FontWeight.SemiBold,
                         maxLines = 2
                     )
@@ -1569,7 +1552,7 @@ private fun SimPicker(
                         Text(
                             sim.label,
                             modifier = Modifier.weight(1f),
-                            fontSize = 13.sp,
+                            fontSize = 15.sp,
                             color = if (enabled) TajerForest else TajerInk,
                             fontWeight = if (enabled) FontWeight.SemiBold else FontWeight.Medium
                         )
@@ -1605,15 +1588,15 @@ private fun ServiceStatusPanel(
         shape = RectangleShape
     ) {
         Column(Modifier.padding(horizontal = 17.dp, vertical = 15.dp)) {
-            Text("حالة خدمة الإرسال", color = TajerMuted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            Text("حالة خدمة الإرسال", color = TajerMuted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stateTitle,
                     modifier = Modifier.weight(1f),
                     color = stateColor,
-                    fontSize = 17.sp,
-                    lineHeight = 24.sp,
+                    fontSize = 19.sp,
+                    lineHeight = 27.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Box(Modifier.size(9.dp).background(if (relayRunning) TajerForest else TajerClay))
@@ -1622,11 +1605,11 @@ private fun ServiceStatusPanel(
             Text(
                 "اتصال الخادم: ${relayConnectionLabel(relayConnectionState, relayRunning)}",
                 color = TajerInk,
-                fontSize = 12.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(6.dp))
-            Text(detail, color = TajerMuted, fontSize = 12.sp, lineHeight = 21.sp)
+            Text(detail, color = TajerMuted, fontSize = 14.sp, lineHeight = 24.sp)
         }
     }
 }
@@ -1646,9 +1629,9 @@ private fun NoticePanel(title: String, detail: String, tone: NoticeTone) {
             Box(Modifier.padding(top = 5.dp).size(6.dp).background(accent))
             Spacer(Modifier.width(10.dp))
             Column {
-                Text(title, color = TajerInk, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text(title, color = TajerInk, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(4.dp))
-                Text(detail, color = TajerMuted, fontSize = 10.sp, lineHeight = 18.sp)
+                Text(detail, color = TajerMuted, fontSize = 12.sp, lineHeight = 21.sp)
             }
         }
     }
@@ -1658,7 +1641,7 @@ private fun NoticePanel(title: String, detail: String, tone: NoticeTone) {
 private fun BrandMark(modifier: Modifier = Modifier) {
     Surface(modifier = modifier, color = TajerForest, shape = RectangleShape) {
         Box(contentAlignment = Alignment.Center) {
-            Text("T", fontSize = 23.sp, color = Color.White, fontWeight = FontWeight.Bold)
+            Text("T", fontSize = 25.sp, color = Color.White, fontWeight = FontWeight.Bold)
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -1687,23 +1670,23 @@ private fun ExitConfirmationDialog(
                     BrandMark(modifier = Modifier.size(42.dp))
                     Spacer(Modifier.width(12.dp))
                     Column {
-                        Text("تاجر تراك فون", color = TajerInk, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text("تأكيد الخروج", color = TajerMuted, fontSize = 10.sp)
+                        Text("تاجر تراك فون", color = TajerInk, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text("تأكيد الخروج", color = TajerMuted, fontSize = 12.sp)
                     }
                 }
                 Spacer(Modifier.height(22.dp))
                 Text(
                     "هل تريد الخروج من التطبيق؟",
                     color = TajerInk,
-                    fontSize = 17.sp,
+                    fontSize = 19.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(7.dp))
                 Text(
                     "سيبقى ربط متجرك وإعدادات الهاتف محفوظة، ويمكنك العودة في أي وقت.",
                     color = TajerMuted,
-                    fontSize = 11.sp,
-                    lineHeight = 19.sp
+                    fontSize = 13.sp,
+                    lineHeight = 22.sp
                 )
                 Spacer(Modifier.height(22.dp))
                 Row(
@@ -1717,7 +1700,7 @@ private fun ExitConfirmationDialog(
                         border = BorderStroke(1.dp, TajerBorder),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
                     ) {
-                        Text("البقاء", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text("البقاء", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Button(
                         onClick = onConfirm,
@@ -1725,7 +1708,7 @@ private fun ExitConfirmationDialog(
                         shape = RectangleShape,
                         colors = ButtonDefaults.buttonColors(containerColor = TajerForest)
                     ) {
-                        Text("خروج", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text("خروج", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -1754,7 +1737,7 @@ private fun PhoneSplashScreen() {
             Text(
                 "SMS PHONE",
                 color = TajerMuted,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 2.sp
             )
@@ -1826,8 +1809,6 @@ private fun DeviceManagementPage(
             .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
         PageIntro(
-            number = "03",
-            title = "إدارة أجهزة الإرسال",
             subtitle = "يمكن للهاتف الرئيسي تغطية الشبكات غير المرتبطة بخط مخصص. تظهر هنا حالة الاتصال والتقارير الصحية لكل هاتف إرسال مرتبط."
         )
         Spacer(Modifier.height(20.dp))
@@ -1837,20 +1818,20 @@ private fun DeviceManagementPage(
             shape = RectangleShape
         ) {
             Column(Modifier.padding(18.dp)) {
-                Text("الهاتف الرئيسي", color = Color(0xFFDCE7DC), fontSize = 11.sp)
+                Text("الهاتف الرئيسي", color = Color(0xFFDCE7DC), fontSize = 13.sp)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     storeName.ifBlank { "متجرك" },
                     color = Color.White,
-                    fontSize = 18.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "هذا الهاتف يدير خطوط الإرسال ويمكنه تغطية أي شبكة لا تملك خطاً مخصصاً مفعّلاً. الهواتف المدعوة ترسل عبر الشبكة المحددة لها فقط.",
                     color = Color(0xFFDCE7DC),
-                    fontSize = 11.sp,
-                    lineHeight = 19.sp
+                    fontSize = 13.sp,
+                    lineHeight = 22.sp
                 )
             }
         }
@@ -1866,7 +1847,7 @@ private fun DeviceManagementPage(
                 onClick = onRefreshManagerDevices,
                 enabled = !loadingSenderDevices
             ) {
-                Text(if (loadingSenderDevices) "جارٍ التحديث..." else "تحديث", color = TajerForest, fontSize = 11.sp)
+                Text(if (loadingSenderDevices) "جارٍ التحديث..." else "تحديث", color = TajerForest, fontSize = 13.sp)
             }
         }
         AnimatedVisibility(
@@ -1877,8 +1858,8 @@ private fun DeviceManagementPage(
             Text(
                 managerDevicesStatus,
                 color = TajerMuted,
-                fontSize = 10.sp,
-                lineHeight = 17.sp,
+                fontSize = 12.sp,
+                lineHeight = 20.sp,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -1918,8 +1899,8 @@ private fun DeviceManagementPage(
                     Text(
                         "لا توجد خطوط إرسال ظاهرة حالياً.",
                         color = TajerMuted,
-                        fontSize = 11.sp,
-                        lineHeight = 18.sp
+                        fontSize = 13.sp,
+                        lineHeight = 21.sp
                     )
                 }
             }
@@ -1967,7 +1948,7 @@ private fun DeviceManagementPage(
                                     Text(
                                         device.displayName,
                                         color = TajerInk,
-                                        fontSize = 13.sp,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         maxLines = 1
                                     )
@@ -1980,8 +1961,8 @@ private fun DeviceManagementPage(
                                             else -> "شبكة غير محددة"
                                         } + if (device.isPrimary) " · خط الهاتف الرئيسي" else " · هاتف مدعو",
                                         color = TajerMuted,
-                                        fontSize = 10.sp,
-                                        lineHeight = 16.sp
+                                        fontSize = 12.sp,
+                                        lineHeight = 19.sp
                                     )
                                 }
                                 Spacer(Modifier.width(8.dp))
@@ -2019,7 +2000,7 @@ private fun DeviceManagementPage(
                                                 device.isOnline -> TajerForest
                                                 else -> TajerMuted
                                             },
-                                            fontSize = 10.sp,
+                                            fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                     }
@@ -2031,14 +2012,14 @@ private fun DeviceManagementPage(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text("الصحة: ${healthStatus.first}", color = healthStatus.second, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                                    Text(device.healthReportedAt?.let(::remoteHealthReportAge) ?: "لم يصل تقرير بعد", color = TajerMuted, fontSize = 9.sp)
+                                    Text("الصحة: ${healthStatus.first}", color = healthStatus.second, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(device.healthReportedAt?.let(::remoteHealthReportAge) ?: "لم يصل تقرير بعد", color = TajerMuted, fontSize = 11.sp)
                                 }
                                 TextButton(
                                     onClick = { expandedHealthDeviceId = if (expandedHealthDeviceId == device.deviceId) "" else device.deviceId },
                                     contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)
                                 ) {
-                                    Text(if (expandedHealthDeviceId == device.deviceId) "إخفاء تفاصيل الصحة" else "عرض تفاصيل الصحة", color = TajerForest, fontSize = 10.sp)
+                                    Text(if (expandedHealthDeviceId == device.deviceId) "إخفاء تفاصيل الصحة" else "عرض تفاصيل الصحة", color = TajerForest, fontSize = 12.sp)
                                     Icon(Icons.Outlined.ExpandMore, contentDescription = null, modifier = Modifier.size(15.dp), tint = TajerForest)
                                 }
                                 AnimatedVisibility(
@@ -2083,7 +2064,7 @@ private fun DeviceManagementPage(
                                                 device.enabled -> "إيقاف الخط"
                                                 else -> "استئناف الخط"
                                             },
-                                            fontSize = 10.sp,
+                                            fontSize = 12.sp,
                                             maxLines = 1
                                         )
                                     }
@@ -2098,7 +2079,7 @@ private fun DeviceManagementPage(
                                         Text(
                                             "إلغاء الربط",
                                             color = Color(0xFF9B563F),
-                                            fontSize = 10.sp,
+                                            fontSize = 12.sp,
                                             maxLines = 1
                                         )
                                     }
@@ -2120,8 +2101,8 @@ private fun DeviceManagementPage(
         Text(
             "لأفضل تكلفة محتملة، اربط خطاً من كل شبكة: Djezzy وMobilis وOoredoo. يستخدم النظام الخط المخصص والمفعّل لشبكة العميل، ويغطي الهاتف الرئيسي الشبكات التي لا تملك خطاً مخصصاً. قد تختلف الأسعار حسب عرض شركة الاتصالات.",
             color = TajerMuted,
-            fontSize = 11.sp,
-            lineHeight = 19.sp
+            fontSize = 13.sp,
+            lineHeight = 22.sp
         )
         Spacer(Modifier.height(11.dp))
         Row(
@@ -2148,7 +2129,7 @@ private fun DeviceManagementPage(
                         Text(
                             label,
                             color = if (selected) Color.White else TajerInk,
-                            fontSize = 12.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         AnimatedVisibility(
@@ -2203,7 +2184,7 @@ private fun DeviceManagementPage(
                     selectedOperator.isBlank() -> "اختر الشبكة أولاً"
                     else -> "إنشاء رابط الدعوة"
                 },
-                fontSize = 13.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -2217,8 +2198,8 @@ private fun DeviceManagementPage(
                 Text(
                     invitationStatus,
                     color = if (invitationUrl.isNotBlank()) TajerForest else TajerMuted,
-                    fontSize = 11.sp,
-                    lineHeight = 19.sp
+                    fontSize = 13.sp,
+                    lineHeight = 22.sp
                 )
             }
         }
@@ -2246,15 +2227,15 @@ private fun DeviceManagementPage(
                         Text(
                             invitationUrl,
                             color = TajerForest,
-                            fontSize = 11.sp,
-                            lineHeight = 18.sp
+                            fontSize = 13.sp,
+                            lineHeight = 21.sp
                         )
                         Spacer(Modifier.height(9.dp))
                         Text(
                             "تشمل الرسالة رابط تحميل التطبيق ورابط الدعوة الخاص بهذه الشبكة.",
                             color = TajerMuted,
-                            fontSize = 10.sp,
-                            lineHeight = 17.sp
+                            fontSize = 12.sp,
+                            lineHeight = 20.sp
                         )
                     }
                 }
@@ -2267,7 +2248,7 @@ private fun DeviceManagementPage(
                 ) {
                     Icon(Icons.Outlined.Sms, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(9.dp))
-                    Text("إرسال عبر SMS", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("إرسال عبر SMS", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
@@ -2279,7 +2260,7 @@ private fun DeviceManagementPage(
                 ) {
                     Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(9.dp))
-                    Text("مشاركة عبر Telegram أو التطبيقات الأخرى", fontSize = 11.sp)
+                    Text("مشاركة عبر Telegram أو التطبيقات الأخرى", fontSize = 13.sp)
                 }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
@@ -2289,7 +2270,7 @@ private fun DeviceManagementPage(
                     border = BorderStroke(1.dp, TajerBorder),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
                 ) {
-                    Text("نسخ الرسالة الكاملة", fontSize = 11.sp)
+                    Text("نسخ الرسالة الكاملة", fontSize = 13.sp)
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -2303,7 +2284,7 @@ private fun DeviceManagementPage(
                         contentPadding = PaddingValues(horizontal = 7.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
                     ) {
-                        Text("نسخ رابط الدعوة", fontSize = 10.sp)
+                        Text("نسخ رابط الدعوة", fontSize = 12.sp)
                     }
                     OutlinedButton(
                         onClick = onCopyDownloadLink,
@@ -2313,7 +2294,7 @@ private fun DeviceManagementPage(
                         contentPadding = PaddingValues(horizontal = 7.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
                     ) {
-                        Text("نسخ رابط التحميل", fontSize = 10.sp)
+                        Text("نسخ رابط التحميل", fontSize = 12.sp)
                     }
                 }
             }
@@ -2324,8 +2305,8 @@ private fun DeviceManagementPage(
         Text(
             "كل هاتف مدعو يرتبط بشبكة واحدة فقط. لإضافة شبكة أخرى على هاتف مزدوج الشريحة، أنشئ دعوة ثانية للشبكة الأخرى وافتحها على الهاتف نفسه.",
             color = TajerMuted,
-            fontSize = 10.sp,
-            lineHeight = 18.sp
+            fontSize = 12.sp,
+            lineHeight = 21.sp
         )
         Spacer(Modifier.height(18.dp))
     }
@@ -2350,14 +2331,14 @@ private fun DeviceManagementPage(
                             "إلغاء ربط الهاتف",
                             color = TajerInk,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp
+                            fontSize = 19.sp
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
                             "لن يستطيع هذا الهاتف إرسال رسائل التتبع بعد الإلغاء. يمكنك ربط هاتف آخر بالشبكة نفسها بدعوة جديدة.",
                             color = TajerMuted,
-                            fontSize = 12.sp,
-                            lineHeight = 20.sp
+                            fontSize = 14.sp,
+                            lineHeight = 23.sp
                         )
                         Spacer(Modifier.height(20.dp))
                         Row(
@@ -2369,7 +2350,7 @@ private fun DeviceManagementPage(
                                 onClick = { showRevokeDialog = false },
                                 modifier = Modifier.weight(1f).height(44.dp)
                             ) {
-                                Text("إبقاء الهاتف", color = TajerForest, fontSize = 12.sp)
+                                Text("إبقاء الهاتف", color = TajerForest, fontSize = 14.sp)
                             }
                             Button(
                                 onClick = {
@@ -2383,7 +2364,7 @@ private fun DeviceManagementPage(
                                     contentColor = Color.White
                                 )
                             ) {
-                                Text("إلغاء الربط", fontSize = 12.sp)
+                                Text("إلغاء الربط", fontSize = 14.sp)
                             }
                         }
                     }
@@ -2432,8 +2413,6 @@ private fun GuidePage() {
             .padding(horizontal = 21.dp, vertical = 22.dp)
     ) {
         PageIntro(
-            number = "04",
-            title = "الشروط والأسئلة",
             subtitle = "كل ما تحتاج معرفته عن الربط والشرائح والإرسال، بلغة واضحة."
         )
         Spacer(Modifier.height(16.dp))
@@ -2442,16 +2421,16 @@ private fun GuidePage() {
                 Text(
                     "سؤال ${(index + 1).toString().padStart(2, '0')}",
                     color = TajerClay,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.7.sp
                 )
                 Spacer(Modifier.height(6.dp))
-                Text(item.first, color = TajerForestDeep, fontSize = 15.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold)
+                Text(item.first, color = TajerForestDeep, fontSize = 17.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(8.dp))
-                Text("الإجابة", color = TajerMuted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                Text("الإجابة", color = TajerMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(3.dp))
-                Text(item.second, color = TajerInk, fontSize = 13.sp, lineHeight = 24.sp)
+                Text(item.second, color = TajerInk, fontSize = 15.sp, lineHeight = 27.sp)
             }
             if (index < questions.lastIndex) HorizontalDivider(color = TajerBorder)
         }
@@ -2461,7 +2440,7 @@ private fun GuidePage() {
             modifier = Modifier.fillMaxWidth(),
             color = TajerMuted,
             textAlign = TextAlign.Center,
-            fontSize = 10.sp
+            fontSize = 12.sp
         )
         Spacer(Modifier.height(12.dp))
     }
@@ -2480,8 +2459,6 @@ private fun AboutPage() {
             .padding(horizontal = 20.dp, vertical = 22.dp)
     ) {
         PageIntro(
-            number = "05",
-            title = "حول التطبيق",
             subtitle = "معلومات سريعة عن تاجر تراك فون."
         )
         Spacer(Modifier.height(24.dp))
@@ -2495,14 +2472,14 @@ private fun AboutPage() {
                 Text(
                     "تاجر تراك فون",
                     color = TajerInk,
-                    fontSize = 17.sp,
+                    fontSize = 19.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "رفيق متجرك لإرسال روابط التتبع",
                     color = TajerMuted,
-                    fontSize = 11.sp
+                    fontSize = 13.sp
                 )
             }
         }
@@ -2510,8 +2487,8 @@ private fun AboutPage() {
         Text(
             "تطبيق مرافق لتاجر تراك، يستخدم شريحة هاتفك لإرسال رابط تتبع الطلب إلى العميل عند إنشاء طلب جديد. يعمل في الخلفية لاستقبال طلبات الإرسال، دون إرسال رسائل تحديث متكررة.",
             color = TajerMuted,
-            fontSize = 12.sp,
-            lineHeight = 22.sp
+            fontSize = 14.sp,
+            lineHeight = 25.sp
         )
         Spacer(Modifier.height(24.dp))
         Surface(
@@ -2542,20 +2519,20 @@ private fun AboutPage() {
                     Text(
                         "موقع تاجر تراك",
                         color = TajerInk,
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         "tajertrack.vercel.app",
                         color = TajerForest,
-                        fontSize = 11.sp
+                        fontSize = 13.sp
                     )
                 }
                 Text(
                     "فتح",
                     color = TajerForest,
-                    fontSize = 11.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -2565,7 +2542,7 @@ private fun AboutPage() {
             "تاجر تراك فون · تطبيق إرسال الرسائل عبر شريحة متجرك",
             modifier = Modifier.fillMaxWidth(),
             color = TajerMuted,
-            fontSize = 10.sp,
+            fontSize = 12.sp,
             textAlign = TextAlign.Center
         )
     }
@@ -2611,8 +2588,6 @@ private fun SmsMessageLogPage(
             .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
         PageIntro(
-            number = "04",
-            title = "سجل الرسائل",
             subtitle = "سجل موحّد لرسائل روابط التتبع من جميع أجهزة الإرسال المرتبطة بمتجرك."
         )
         Spacer(Modifier.height(16.dp))
@@ -2635,8 +2610,8 @@ private fun SmsMessageLogPage(
                 Text(
                     "تظهر «تم التسليم» فقط عند استلام تقرير إيجابي من شبكة الهاتف. قد لا توفر بعض الشبكات تقريراً لكل رسالة.",
                     color = TajerForestDeep,
-                    fontSize = 10.sp,
-                    lineHeight = 18.sp,
+                    fontSize = 12.sp,
+                    lineHeight = 21.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -2670,7 +2645,7 @@ private fun SmsMessageLogPage(
                     Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
                 Spacer(Modifier.width(6.dp))
-                Text("تحديث", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text("تحديث", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -2703,10 +2678,10 @@ private fun SmsMessageLogPage(
                 singleLine = true,
                 shape = RectangleShape,
                 placeholder = {
-                    Text("اسم العميل أو رقم الهاتف", fontSize = 11.sp, color = TajerMuted)
+                    Text("اسم العميل أو رقم الهاتف", fontSize = 13.sp, color = TajerMuted)
                 },
                 textStyle = androidx.compose.ui.text.TextStyle(
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     color = TajerInk
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -2733,7 +2708,7 @@ private fun SmsMessageLogPage(
             ) {
                 Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(5.dp))
-                Text("بحث", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text("بحث", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -2752,11 +2727,11 @@ private fun SmsMessageLogPage(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("جهاز الإرسال", color = TajerMuted, fontSize = 9.sp)
+                        Text("جهاز الإرسال", color = TajerMuted, fontSize = 11.sp)
                         Text(
                             selectedDevice?.let { smsDeviceDisplayLabel(it) } ?: "كل أجهزة الإرسال",
                             color = TajerInk,
-                            fontSize = 11.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1
                         )
@@ -2775,7 +2750,7 @@ private fun SmsMessageLogPage(
                 modifier = Modifier.fillMaxWidth(0.86f)
             ) {
                 DropdownMenuItem(
-                    text = { Text("كل أجهزة الإرسال", fontSize = 12.sp) },
+                    text = { Text("كل أجهزة الإرسال", fontSize = 14.sp) },
                     onClick = {
                         deviceMenuExpanded = false
                         onDeviceFilterChange("")
@@ -2785,9 +2760,9 @@ private fun SmsMessageLogPage(
                     DropdownMenuItem(
                         text = {
                             Column {
-                                Text(smsDeviceDisplayLabel(device), fontSize = 12.sp)
+                                Text(smsDeviceDisplayLabel(device), fontSize = 14.sp)
                                 if (device.revoked) {
-                                    Text("تم إلغاء الربط", fontSize = 9.sp, color = TajerMuted)
+                                    Text("تم إلغاء الربط", fontSize = 11.sp, color = TajerMuted)
                                 }
                             }
                         },
@@ -2809,7 +2784,7 @@ private fun SmsMessageLogPage(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = TajerForest, strokeWidth = 2.dp)
                     Spacer(Modifier.height(12.dp))
-                    Text("جارٍ تحميل سجل الرسائل...", color = TajerMuted, fontSize = 11.sp)
+                    Text("جارٍ تحميل سجل الرسائل...", color = TajerMuted, fontSize = 13.sp)
                 }
             }
         } else if (messages.isEmpty()) {
@@ -2833,7 +2808,7 @@ private fun SmsMessageLogPage(
                     Text(
                         if (statusMessage.isNotBlank()) statusMessage else "لا توجد رسائل في هذا التصنيف.",
                         color = TajerInk,
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center
                     )
@@ -2841,8 +2816,8 @@ private fun SmsMessageLogPage(
                     Text(
                         "ستظهر هنا رسائل روابط التتبع التي تعالجها هواتف الإرسال.",
                         color = TajerMuted,
-                        fontSize = 10.sp,
-                        lineHeight = 17.sp,
+                        fontSize = 12.sp,
+                        lineHeight = 20.sp,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -2852,8 +2827,8 @@ private fun SmsMessageLogPage(
                 Text(
                     statusMessage,
                     color = TajerClay,
-                    fontSize = 10.sp,
-                    lineHeight = 17.sp,
+                    fontSize = 12.sp,
+                    lineHeight = 20.sp,
                     modifier = Modifier.padding(bottom = 9.dp)
                 )
             }
@@ -2881,7 +2856,7 @@ private fun SmsMessageLogPage(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text("عرض رسائل أقدم", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text("عرض رسائل أقدم", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -2898,7 +2873,7 @@ private fun SmsLogFilterButton(
     onClick: () -> Unit
 ) {
     Surface(
-        modifier = modifier.height(38.dp).clickable(onClick = onClick),
+        modifier = modifier.height(46.dp).clickable(onClick = onClick),
         color = if (selected) TajerForest else TajerSurface,
         border = BorderStroke(1.dp, if (selected) TajerForest else TajerBorder),
         shape = RectangleShape
@@ -2907,10 +2882,11 @@ private fun SmsLogFilterButton(
             Text(
                 label,
                 color = if (selected) Color.White else TajerInk,
-                fontSize = 10.sp,
+                fontSize = 12.sp,
+                lineHeight = 15.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                 textAlign = TextAlign.Center,
-                maxLines = 1
+                maxLines = 2
             )
         }
     }
@@ -2979,7 +2955,7 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
                     Text(
                         message.customerName.ifBlank { "عميل" },
                         color = TajerInk,
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
                     )
@@ -2987,7 +2963,7 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
                     Text(
                         message.customerPhone.ifBlank { "رقم العميل غير متاح" },
                         color = TajerMuted,
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -2997,7 +2973,7 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
                         statusLabel,
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
                         color = statusColor,
-                        fontSize = 10.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -3011,14 +2987,14 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
                 Text(
                     "رابط تتبع الطلب",
                     color = TajerForest,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 if (message.orderReference.isNotBlank()) {
                     Text(
                         "الطلب #${message.orderReference}",
                         color = TajerMuted,
-                        fontSize = 10.sp,
+                        fontSize = 12.sp,
                         maxLines = 1
                     )
                 }
@@ -3027,7 +3003,7 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
             Text(
                 "حالة الإرسال: $sendStatusLabel",
                 color = TajerMuted,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.height(9.dp))
@@ -3039,30 +3015,30 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
                 verticalAlignment = Alignment.Top
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(message.eventLabel, color = TajerMuted, fontSize = 9.sp)
+                    Text(message.eventLabel, color = TajerMuted, fontSize = 11.sp)
                     Spacer(Modifier.height(4.dp))
                     Text(
                         formatSmsLogTimestamp(message.eventAt ?: message.queuedAt),
                         color = TajerInk,
-                        fontSize = 11.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("جهاز الإرسال", color = TajerMuted, fontSize = 9.sp)
+                    Text("جهاز الإرسال", color = TajerMuted, fontSize = 11.sp)
                     Spacer(Modifier.height(4.dp))
                     Text(
                         message.senderDeviceName ?: "بانتظار جهاز الإرسال",
                         color = TajerInk,
-                        fontSize = 10.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.End,
                         maxLines = 1
                     )
                     val operatorLabel = smsOperatorLabel(message.operatorCode)
                     if (operatorLabel.isNotBlank()) {
-                        Text(operatorLabel, color = TajerMuted, fontSize = 9.sp)
+                        Text(operatorLabel, color = TajerMuted, fontSize = 11.sp)
                     }
                 }
             }
@@ -3071,7 +3047,7 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
                 Text(
                     "عدد محاولات المعالجة: ${message.attemptCount}",
                     color = TajerMuted,
-                    fontSize = 9.sp
+                    fontSize = 11.sp
                 )
             }
             if (detailMessage.isNotBlank()) {
@@ -3082,13 +3058,13 @@ private fun SmsMessageLogCard(message: SmsMessageLogEntry) {
                     shape = RectangleShape
                 ) {
                     Column(Modifier.padding(10.dp)) {
-                        Text("تفاصيل النتيجة", color = Color(0xFF9D4D32), fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                        Text("تفاصيل النتيجة", color = Color(0xFF9D4D32), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(3.dp))
                         Text(
                             detailMessage,
                             color = Color(0xFF78452F),
-                            fontSize = 10.sp,
-                            lineHeight = 17.sp
+                            fontSize = 12.sp,
+                            lineHeight = 20.sp
                         )
                     }
                 }

@@ -125,17 +125,13 @@ internal fun DeviceHealthPage(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 22.dp)
     ) {
-        Text("مراقبة هذا الهاتف", color = TajerMuted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(5.dp))
-        Text("حالة الجهاز", color = TajerInk, fontSize = 25.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(7.dp))
         Text(
             "كل معلومات الاتصال والإرسال والشرائح والأذونات في مكان واحد.",
             color = TajerMuted,
-            fontSize = 12.sp,
-            lineHeight = 20.sp
+            fontSize = 14.sp,
+            lineHeight = 24.sp
         )
-        Spacer(Modifier.height(19.dp))
+        Spacer(Modifier.height(18.dp))
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -149,22 +145,22 @@ internal fun DeviceHealthPage(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("التقييم العام", color = TajerMuted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    Text("التقييم العام", color = TajerMuted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     Text(
                         if (healthy) "سليم" else if (summaryColor == Color(0xFF9D4D32)) "يحتاج مراجعة" else "غير مكتمل",
                         color = summaryColor,
-                        fontSize = 11.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
                 Spacer(Modifier.height(11.dp))
-                Text(summaryTitle, color = summaryColor, fontSize = 18.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold)
+                Text(summaryTitle, color = summaryColor, fontSize = 20.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(7.dp))
-                Text(summaryDetail, color = TajerInk, fontSize = 12.sp, lineHeight = 21.sp)
+                Text(summaryDetail, color = TajerInk, fontSize = 14.sp, lineHeight = 24.sp)
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = TajerBorder)
                 Spacer(Modifier.height(9.dp))
-                Text("آخر فحص: ${healthAge(healthCheckedAt)}", color = TajerMuted, fontSize = 10.sp)
+                Text("آخر فحص: ${healthAge(healthCheckedAt)}", color = TajerMuted, fontSize = 12.sp)
             }
         }
 
@@ -237,7 +233,7 @@ internal fun DeviceHealthPage(
             shape = RectangleShape,
             colors = ButtonDefaults.buttonColors(containerColor = TajerForest)
         ) {
-            Text("إعداد الشرائح وخدمة الإرسال", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text("إعداد الشرائح وخدمة الإرسال", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         }
         Spacer(Modifier.height(9.dp))
         OutlinedButton(
@@ -247,7 +243,7 @@ internal fun DeviceHealthPage(
             border = BorderStroke(1.dp, TajerForest),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = TajerForest)
         ) {
-            Text("تحديث حالة الجهاز", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text("تحديث حالة الجهاز", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         }
         Spacer(Modifier.height(22.dp))
     }
@@ -255,7 +251,7 @@ internal fun DeviceHealthPage(
 
 @Composable
 private fun DeviceHealthSection(title: String) {
-    Text(title, color = TajerInk, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    Text(title, color = TajerInk, fontSize = 17.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(9.dp))
 }
 
@@ -267,7 +263,7 @@ private fun DeviceHealthRow(label: String, value: String, detail: String? = null
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top
         ) {
-            Text(label, modifier = Modifier.weight(1f), color = TajerMuted, fontSize = 11.sp, lineHeight = 17.sp)
+            Text(label, modifier = Modifier.weight(1f), color = TajerMuted, fontSize = 13.sp, lineHeight = 20.sp)
             Spacer(Modifier.size(12.dp))
             Text(
                 value,
@@ -276,15 +272,15 @@ private fun DeviceHealthRow(label: String, value: String, detail: String? = null
                     false -> Color(0xFF9D4D32)
                     null -> TajerInk
                 },
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
+                fontSize = 14.sp,
+                lineHeight = 21.sp,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.End
             )
         }
         if (!detail.isNullOrBlank()) {
             Spacer(Modifier.height(3.dp))
-            Text(detail, color = TajerMuted, fontSize = 10.sp, lineHeight = 17.sp)
+            Text(detail, color = TajerMuted, fontSize = 12.sp, lineHeight = 20.sp)
         }
         Spacer(Modifier.height(8.dp))
         HorizontalDivider(color = TajerBorder)
@@ -304,9 +300,9 @@ private fun DeviceHealthNotice(title: String, detail: String) {
         shape = RectangleShape
     ) {
         Column(Modifier.padding(13.dp)) {
-            Text(title, color = Color(0xFF9D4D32), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(title, color = Color(0xFF9D4D32), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(4.dp))
-            Text(detail, color = TajerInk, fontSize = 11.sp, lineHeight = 18.sp)
+            Text(detail, color = TajerInk, fontSize = 13.sp, lineHeight = 21.sp)
         }
     }
     Spacer(Modifier.height(5.dp))
