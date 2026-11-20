@@ -101,6 +101,11 @@ class ApiClient {
             )
         }
 
+    suspend fun reportDeviceHealth(token: String, healthReport: JSONObject) = withContext(Dispatchers.IO) {
+        val response = post("/api/mobile/sms-gateway/device/health", JSONObject().put("healthReport", healthReport), token)
+        if (!response.optBoolean("success")) throw GatewayProtocolException("TajerTrack did not confirm the sender device health report.")
+    }
+
     suspend fun listManagerDevices(managerToken: String): List<ManagerSenderDevice> =
         withContext(Dispatchers.IO) {
             val response = get("/api/mobile/sms-gateway/manager/devices", managerToken)
@@ -120,7 +125,9 @@ class ApiClient {
                             revoked = item.optBoolean("revoked"),
                             isOnline = item.optBoolean("isOnline"),
                             connectedAt = item.optString("connectedAt"),
-                            lastSeenAt = item.optString("lastSeenAt")
+                            lastSeenAt = item.optString("lastSeenAt"),
+                            healthReportedAt = item.optString("healthReportedAt").takeUnless { it.isBlank() || it == "null" },
+                            healthReport = parseManagerDeviceHealth(item.optJSONObject("healthReport"))
                         )
                     )
                 }
@@ -450,10 +457,47 @@ data class ManagerSenderDevice(
     val revoked: Boolean,
     val isOnline: Boolean,
     val connectedAt: String,
-    val lastSeenAt: String
+    val lastSeenAt: String,
+    val healthReportedAt: String? = null,
+    val healthReport: ManagerDeviceHealthReport? = null
 )
 
+data class ManagerDeviceHealthReport(
+    val appVersion: String, val model: String, val androidRelease: String, val apiLevel: Int,
+    val internetValidated: Boolean, val sendSmsGranted: Boolean, val phoneStateGranted: Boolean,
+    val notificationsGranted: Boolean, val notificationsRequired: Boolean,
+    val relayEnabled: Boolean, val relayServiceRunning: Boolean, val relayConnectionState: String,
+    val diagnosticMessage: String, val statusUpdatedAt: Long, val lastSuccessfulPollAt: Long,
+    val consecutiveFailures: Int, val activeSimCount: Int?, val enabledSimCount: Int,
+    val missingEnabledSimCount: Int?, val alternateSimsEnabled: Boolean
+)
 
+private fun parseManagerDeviceHealth(report: JSONObject?): ManagerDeviceHealthReport? {
+    if (report == null || report.optInt("reportVersion", 0) != 1) return null
+    val device = report.optJSONObject("device") ?: return null
+    val connectivity = report.optJSONObject("connectivity") ?: return null
+    val permissions = report.optJSONObject("permissions") ?: return null
+    val relay = report.optJSONObject("relay") ?: return null
+    val sims = report.optJSONObject("sims") ?: return null
+    val appVersion = device.optString("appVersion").takeIf(String::isNotBlank) ?: return null
+    val model = device.optString("model").takeIf(String::isNotBlank) ?: return null
+    val androidRelease = device.optString("androidRelease").takeIf(String::isNotBlank) ?: return null
+    val apiLevel = device.optInt("apiLevel", -1).takeIf { it >= 26 } ?: return null
+    return ManagerDeviceHealthReport(
+        appVersion, model, androidRelease, apiLevel,
+        connectivity.optBoolean("internetValidated"),
+        permissions.optBoolean("sendSmsGranted"), permissions.optBoolean("phoneStateGranted"),
+        permissions.optBoolean("notificationsGranted"), permissions.optBoolean("notificationsRequired"),
+        relay.optBoolean("enabled"), relay.optBoolean("serviceRunning"),
+        relay.optString("connectionState", "unknown"), relay.optString("diagnosticMessage"),
+        relay.optLong("statusUpdatedAt", 0L), relay.optLong("lastSuccessfulPollAt", 0L),
+        relay.optInt("consecutiveFailures", 0).coerceAtLeast(0),
+        sims.optInt("activeCount", -1).takeIf { it >= 0 },
+        sims.optInt("enabledCount", 0).coerceIn(0, 2),
+        sims.optInt("missingEnabledCount", -1).takeIf { it >= 0 },
+        sims.optBoolean("alternateSimsEnabled")
+    )
+}
 
 data class SmsMessageLogEntry(
     val id: String,

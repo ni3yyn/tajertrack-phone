@@ -22,6 +22,7 @@ import com.tajertrack.phone.R
 import com.tajertrack.phone.data.ApiClient
 import com.tajertrack.phone.data.AppPreferences
 import com.tajertrack.phone.data.DeviceTokenStore
+import com.tajertrack.phone.data.RemoteDeviceHealthReporter
 import com.tajertrack.phone.data.DeviceCredential
 import com.tajertrack.phone.data.GatewayHttpException
 import com.tajertrack.phone.data.PendingSmsReport
@@ -156,6 +157,16 @@ class SmsGatewayService : Service() {
                     publishStatus(preferences, "needs_pairing", "لم يعد لهذا الهاتف خط إرسال مرتبط.")
                     stopRelay()
                     return
+                }
+
+                profiles.forEach { profile ->
+                    RemoteDeviceHealthReporter.reportIfDue(
+                        context = this@SmsGatewayService,
+                        preferences = preferences,
+                        api = api,
+                        profile = profile,
+                        relayRunning = isRunning
+                    )
                 }
 
                 if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {

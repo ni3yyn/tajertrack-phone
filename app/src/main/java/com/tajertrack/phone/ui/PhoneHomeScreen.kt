@@ -107,6 +107,126 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
 
+private fun managerDeviceHealthStatus(device: ManagerSenderDevice): Pair<String, Color> {
+    if (device.revoked) return "ملغى" to TajerMuted
+    if (!device.enabled) return "موقوف من الإدارة" to TajerMuted
+    if (!device.isOnline) return "غير متصل" to TajerMuted
+    val report = device.healthReport ?: return "بانتظار أول تقرير" to Color(0xFF9A7040)
+    val reportedAt = parseRemoteHealthTimestamp(device.healthReportedAt) ?: return "وقت التقرير غير معروف" to Color(0xFF9A7040)
+    if (System.currentTimeMillis() - reportedAt > 180_000L) return "التقرير قديم" to Color(0xFF9A7040)
+    val needsAttention = !report.internetValidated || !report.sendSmsGranted || !report.phoneStateGranted ||
+        (report.notificationsRequired && !report.notificationsGranted) ||
+        (report.relayEnabled && !report.relayServiceRunning) ||
+        (report.relayEnabled && report.enabledSimCount == 0) ||
+        (report.missingEnabledSimCount ?: 0) > 0 || report.consecutiveFailures >= 3 ||
+        (report.relayEnabled && report.relayConnectionState in setOf(
+            "offline", "needs_repair", "needs_pairing", "needs_user_start", "attention", "retrying"
+        ))
+    if (needsAttention) return "يحتاج انتباه" to Color(0xFF9B563F)
+    if (!report.relayEnabled) return "الإرسال متوقف على الهاتف" to TajerMuted
+    return "سليم" to TajerForest
+}
+
+private fun parseRemoteHealthTimestamp(value: String?): Long? =
+    value?.let { runCatching { OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
+
+private fun remoteHealthReportAge(value: String): String {
+    val timestamp = parseRemoteHealthTimestamp(value) ?: return "وقت التقرير غير معروف"
+    val seconds = (System.currentTimeMillis() - timestamp).coerceAtLeast(0L) / 1_000L
+    return when {
+        seconds < 60 -> "تقرير الآن"
+        seconds < 3_600 -> "التقرير منذ ${seconds / 60} د"
+        seconds < 86_400 -> "التقرير منذ ${seconds / 3_600} س"
+        else -> "التقرير منذ ${seconds / 86_400} يوم"
+    }
+}
+
+private fun remoteHealthTimestamp(value: Long): String {
+    if (value <= 0L) return "لم يسجّل بعد"
+    return runCatching {
+        java.time.Instant.ofEpochMilli(value).atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("dd/MM/yyyy · HH:mm", Locale("ar", "DZ")))
+    }.getOrDefault("وقت غير معروف")
+}
+
+@Composable
+private fun RemoteDeviceHealthDetails(device: ManagerSenderDevice) {
+    val report = device.healthReport
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 9.dp)) {
+        HorizontalDivider(color = TajerBorder)
+        if (report == null) {
+            Text(
+                "لم يصل تقرير صحي من هذا الهاتف بعد. افتح تاجر تراك فون على الهاتف المرتبط واتصل بالإنترنت، أو حدّث التطبيق إلى إصدار يدعم تقارير الصحة.",
+                color = TajerMuted, fontSize = 10.sp, lineHeight = 17.sp, modifier = Modifier.padding(vertical = 9.dp)
+            )
+        } else {
+            RemoteHealthRow("طراز الهاتف", report.model)
+            RemoteHealthRow("إصدار التطبيق", report.appVersion)
+            RemoteHealthRow("إصدار Android", "${report.androidRelease} (API ${report.apiLevel})")
+            RemoteHealthRow("الإنترنت", if (report.internetValidated) "متصل بالإنترنت" else "لا يوجد اتصال موثّق", report.internetValidated)
+            RemoteHealthRow("إذن إرسال SMS", if (report.sendSmsGranted) "مسموح" else "غير مسموح", report.sendSmsGranted)
+            RemoteHealthRow("إذن شرائح الاتصال", if (report.phoneStateGranted) "مسموح" else "غير مسموح", report.phoneStateGranted)
+            RemoteHealthRow("إشعارات التطبيق",
+                if (!report.notificationsRequired) "غير مطلوب لهذا الإصدار" else if (report.notificationsGranted) "مسموح" else "غير مسموح",
+                if (!report.notificationsRequired) null else report.notificationsGranted)
+            RemoteHealthRow("خدمة الإرسال",
+                when {
+                    !report.relayEnabled -> "متوقفة من إعدادات الهاتف"
+                    report.relayServiceRunning -> "تعمل"
+                    else -> "مفعّلة لكن الخدمة لا تعمل"
+                }, if (!report.relayEnabled) null else report.relayServiceRunning)
+            RemoteHealthRow("حالة الخدمة", remoteRelayStateLabel(report.relayConnectionState))
+            RemoteHealthRow("الشرائح النشطة / المفعّلة", "${report.activeSimCount?.toString() ?: "غير متاح"} / ${report.enabledSimCount}")
+            RemoteHealthRow("شرائح محفوظة غير موجودة", report.missingEnabledSimCount?.toString() ?: "غير متاح",
+                report.missingEnabledSimCount?.let { it == 0 })
+            RemoteHealthRow("تفعيل الشريحة الثانية", if (report.alternateSimsEnabled) "مفعّل" else "غير مفعّل")
+            RemoteHealthRow("فشل الاتصال المتتالي", report.consecutiveFailures.toString(), report.consecutiveFailures == 0)
+            RemoteHealthRow("آخر اتصال ناجح بالخادم", remoteHealthTimestamp(report.lastSuccessfulPollAt))
+            RemoteHealthRow("آخر تحديث لحالة الخدمة", remoteHealthTimestamp(report.statusUpdatedAt))
+            RemoteHealthRow("آخر تقرير صحي", device.healthReportedAt?.let(::remoteHealthReportAge) ?: "غير متاح")
+            RemoteHealthRow("آخر ظهور للخادم", remoteHealthReportAge(device.lastSeenAt))
+            if (report.diagnosticMessage.isNotBlank()) {
+                Spacer(Modifier.height(5.dp))
+                Text("آخر تشخيص من الهاتف", color = TajerMuted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                Text(report.diagnosticMessage, color = TajerInk, fontSize = 10.sp, lineHeight = 17.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RemoteHealthRow(label: String, value: String, positive: Boolean? = null) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Text(label, color = TajerMuted, fontSize = 10.sp, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(10.dp))
+            Text(value, color = when (positive) {
+                true -> TajerForest
+                false -> Color(0xFF9B563F)
+                null -> TajerInk
+            }, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End)
+        }
+        HorizontalDivider(color = TajerBorder.copy(alpha = 0.75f))
+    }
+}
+
+private fun remoteRelayStateLabel(state: String): String = when (state) {
+    "connecting" -> "جارٍ الاتصال"
+    "connected" -> "متصل"
+    "sending" -> "جارٍ الإرسال"
+    "reporting" -> "تسجيل نتيجة الرسالة"
+    "retrying" -> "إعادة المحاولة"
+    "offline" -> "لا يوجد إنترنت"
+    "paused" -> "متوقفة مؤقتاً"
+    "needs_repair" -> "يلزم إعادة الربط"
+    "needs_pairing" -> "يلزم الربط"
+    "needs_user_start" -> "يلزم تشغيل الخدمة من التطبيق"
+    "disabled" -> "موقوفة من الإدارة"
+    "attention" -> "يحتاج مراجعة"
+    "stopped" -> "متوقفة"
+    else -> "غير معروف"
+}
+
 private enum class PhoneDestination {
     Home,
     Health,
@@ -1676,7 +1796,7 @@ private fun DeviceManagementPage(
         "mobilis" to "Mobilis",
         "ooredoo" to "Ooredoo"
     )
-    val deviceListScrollState = rememberScrollState()
+    var expandedHealthDeviceId by remember { mutableStateOf("") }
     var displayedSenderDevices by remember { mutableStateOf(senderDevices) }
     var exitingSenderDeviceIds by remember { mutableStateOf(emptySet<String>()) }
     LaunchedEffect(senderDevices) {
@@ -1702,7 +1822,7 @@ private fun DeviceManagementPage(
         PageIntro(
             number = "03",
             title = "إدارة أجهزة الإرسال",
-            subtitle = "يمكن للهاتف الرئيسي تغطية الشبكات غير المرتبطة بخط مخصص. أضف خطوطاً لكل شبكة للاستفادة من أسعارها حسب باقة المشغّل."
+            subtitle = "يمكن للهاتف الرئيسي تغطية الشبكات غير المرتبطة بخط مخصص. تظهر هنا حالة الاتصال والتقارير الصحية لكل هاتف إرسال مرتبط."
         )
         Spacer(Modifier.height(20.dp))
         Surface(
@@ -1807,10 +1927,10 @@ private fun DeviceManagementPage(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 9.dp)
-                    .height(286.dp)
-                    .verticalScroll(deviceListScrollState)
+                    
             ) {
                 displayedSenderDevices.forEach { device ->
+                    val healthStatus = managerDeviceHealthStatus(device)
                     AnimatedVisibility(
                         visible = device.deviceId !in exitingSenderDeviceIds,
                         enter = panelEnter,
@@ -1898,6 +2018,28 @@ private fun DeviceManagementPage(
                                         )
                                     }
                                 }
+                            }
+                            Column(Modifier.fillMaxWidth().padding(top = 9.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("الصحة: ${healthStatus.first}", color = healthStatus.second, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(device.healthReportedAt?.let(::remoteHealthReportAge) ?: "لم يصل تقرير بعد", color = TajerMuted, fontSize = 9.sp)
+                                }
+                                TextButton(
+                                    onClick = { expandedHealthDeviceId = if (expandedHealthDeviceId == device.deviceId) "" else device.deviceId },
+                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)
+                                ) {
+                                    Text(if (expandedHealthDeviceId == device.deviceId) "إخفاء تفاصيل الصحة" else "عرض تفاصيل الصحة", color = TajerForest, fontSize = 10.sp)
+                                    Icon(Icons.Outlined.ExpandMore, contentDescription = null, modifier = Modifier.size(15.dp), tint = TajerForest)
+                                }
+                                AnimatedVisibility(
+                                    visible = expandedHealthDeviceId == device.deviceId,
+                                    enter = panelEnter,
+                                    exit = panelExit
+                                ) { RemoteDeviceHealthDetails(device) }
                             }
                             AnimatedVisibility(
                                 visible = !device.revoked,

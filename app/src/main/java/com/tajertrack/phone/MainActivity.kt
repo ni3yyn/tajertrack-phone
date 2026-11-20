@@ -31,11 +31,13 @@ import com.tajertrack.phone.data.AppUpdateCheckResult
 import com.tajertrack.phone.data.AppUpdateChecker
 import com.tajertrack.phone.data.AppUpdateInfo
 import com.tajertrack.phone.data.DeviceTokenStore
+import com.tajertrack.phone.data.RemoteDeviceHealthReporter
 import com.tajertrack.phone.service.SmsGatewayService
 import com.tajertrack.phone.service.SmsResultBus
 import com.tajertrack.phone.service.SmsSendResultReceiver
 import com.tajertrack.phone.ui.PhoneHomeScreen
 import com.tajertrack.phone.ui.PhoneTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -59,6 +61,7 @@ class MainActivity : ComponentActivity() {
     private var phoneStatePermissionGranted by mutableStateOf(false)
     private var notificationsPermissionGranted by mutableStateOf(false)
     private var statusSyncJob: Job? = null
+    private var managerDeviceRefreshJob: Job? = null
     private var lastObservedRelayStatusAt = 0L
     private var storeName by mutableStateOf("")
     private var isManager by mutableStateOf(false)
@@ -122,6 +125,7 @@ class MainActivity : ComponentActivity() {
                     statusMessage = "يجب السماح بإرسال الرسائل والوصول إلى معلومات شرائح الاتصال والإشعارات لإكمال الإعداد."
                 }
             }
+            reportCurrentDeviceHealth(force = true)
         }
 
         refreshConnectionState()
@@ -216,13 +220,26 @@ class MainActivity : ComponentActivity() {
         if (tokenStore.hasManagerCredential()) {
             loadManagerDevices()
             loadManagerSmsMessages(reset = true)
+            managerDeviceRefreshJob?.cancel()
+            managerDeviceRefreshJob = lifecycleScope.launch {
+                while (true) {
+                    delay(30_000L)
+                    if (tokenStore.hasManagerCredential()) loadManagerDevices()
+                }
+            }
+        } else {
+            managerDeviceRefreshJob?.cancel()
+            managerDeviceRefreshJob = null
         }
+        reportCurrentDeviceHealth(force = true)
         startRelayStatusSync()
     }
 
     override fun onPause() {
         statusSyncJob?.cancel()
         statusSyncJob = null
+        managerDeviceRefreshJob?.cancel()
+        managerDeviceRefreshJob = null
         super.onPause()
     }
 
@@ -790,6 +807,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun reportCurrentDeviceHealth(force: Boolean = false) {
+        val profiles = tokenStore.readProfiles().distinctBy { it.deviceId }
+        if (profiles.isEmpty()) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val api = ApiClient()
+            profiles.forEach { profile ->
+                RemoteDeviceHealthReporter.reportIfDue(
+                    context = applicationContext,
+                    preferences = preferences,
+                    api = api,
+                    profile = profile,
+                    relayRunning = SmsGatewayService.isRunning,
+                    force = force
+                )
+            }
+        }
+    }
+
     private fun loadManagerDevices() {
         val managerToken = tokenStore.managerToken()
         if (managerToken.isNullOrBlank()) {
@@ -1042,6 +1077,7 @@ class MainActivity : ComponentActivity() {
         relayConnectionState = "stopped"
         statusMessage = preferences.relayStatusMessage
         refreshHealthSignals()
+        reportCurrentDeviceHealth(force = true)
     }
 
     companion object {

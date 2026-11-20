@@ -68,3 +68,23 @@ Apply these existing SMS migrations in order:
 The last migration replaces the one-active-phone-per-merchant index with one active line per carrier slot, annotates pending outbox jobs, creates invitation storage, and installs the carrier-scoped pairing, polling, enable/disable, and revoke functions.
 
 The old Termux gateway remains available for merchants without a native phone. Once any native device is registered for a merchant, the legacy global worker excludes that merchant's jobs. Replacing or revoking a sender line converts only that merchant/line's in-flight sends to `unknown`; it never auto-retries an ambiguous send.
+
+
+## Sender-device health reporting
+
+Sender phones submit a versioned, privacy-bounded snapshot to
+`POST /api/mobile/sms-gateway/device/health` using their own per-device bearer
+credential. The server derives the sender device and merchant from that
+credential; clients cannot choose the target device. The manager reads the
+latest report through `GET /api/mobile/sms-gateway/manager/devices`.
+
+The report contains the sender phone model and app/Android versions, validated
+internet state, required Android permission states, relay/service diagnostics,
+timestamps, consecutive connection failures, and SIM counts/dual-SIM setting.
+It deliberately excludes phone numbers, SIM identifiers, subscriber identity,
+SMS contents, location, and credentials. Reports are rate-limited server-side
+and stored with a server-generated receipt timestamp. The manager treats
+missing or stale reports as unknown/needs-attention, never as healthy.
+
+Apply database migration
+`20261120_native_sms_device_health.sql` before using the reporting API.
