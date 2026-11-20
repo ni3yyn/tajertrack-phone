@@ -110,6 +110,7 @@ import kotlinx.coroutines.launch
 private fun managerDeviceHealthStatus(device: ManagerSenderDevice): Pair<String, Color> {
     if (device.revoked) return "ملغى" to TajerMuted
     if (!device.enabled) return "موقوف من الإدارة" to TajerMuted
+    if (!device.healthReportingAvailable) return "تحديث قاعدة البيانات مطلوب" to Color(0xFF9A7040)
     if (!device.isOnline) return "غير متصل" to TajerMuted
     val report = device.healthReport ?: return "بانتظار أول تقرير" to Color(0xFF9A7040)
     val reportedAt = parseRemoteHealthTimestamp(device.healthReportedAt) ?: return "وقت التقرير غير معروف" to Color(0xFF9A7040)
@@ -154,7 +155,12 @@ private fun RemoteDeviceHealthDetails(device: ManagerSenderDevice) {
     val report = device.healthReport
     Column(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 9.dp)) {
         HorizontalDivider(color = TajerBorder)
-        if (report == null) {
+        if (!device.healthReportingAvailable) {
+            Text(
+                "أجهزة الإرسال ما زالت تعمل ويمكن إدارتها. لتفعيل تقارير الصحة عن بُعد، طبّق ترحيل قاعدة البيانات 20261120_native_sms_device_health.sql ثم حدّث قائمة الأجهزة.",
+                color = TajerMuted, fontSize = 10.sp, lineHeight = 17.sp, modifier = Modifier.padding(vertical = 9.dp)
+            )
+        } else if (report == null) {
             Text(
                 "لم يصل تقرير صحي من هذا الهاتف بعد. افتح تاجر تراك فون على الهاتف المرتبط واتصل بالإنترنت، أو حدّث التطبيق إلى إصدار يدعم تقارير الصحة.",
                 color = TajerMuted, fontSize = 10.sp, lineHeight = 17.sp, modifier = Modifier.padding(vertical = 9.dp)

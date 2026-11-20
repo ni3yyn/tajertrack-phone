@@ -126,6 +126,7 @@ class ApiClient {
                             isOnline = item.optBoolean("isOnline"),
                             connectedAt = item.optString("connectedAt"),
                             lastSeenAt = item.optString("lastSeenAt"),
+                            healthReportingAvailable = item.optBoolean("healthReportingAvailable", true),
                             healthReportedAt = item.optString("healthReportedAt").takeUnless { it.isBlank() || it == "null" },
                             healthReport = parseManagerDeviceHealth(item.optJSONObject("healthReport"))
                         )
@@ -458,6 +459,7 @@ data class ManagerSenderDevice(
     val isOnline: Boolean,
     val connectedAt: String,
     val lastSeenAt: String,
+    val healthReportingAvailable: Boolean = true,
     val healthReportedAt: String? = null,
     val healthReport: ManagerDeviceHealthReport? = null
 )
