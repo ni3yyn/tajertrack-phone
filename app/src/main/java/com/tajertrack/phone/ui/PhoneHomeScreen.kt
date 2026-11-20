@@ -611,7 +611,7 @@ fun PhoneHomeScreen(
                 )
             }
             LaunchedEffect(Unit) {
-                delay(520)
+                delay(3_000)
                 splashVisible = false
             }
             AnimatedVisibility(
@@ -1715,36 +1715,6 @@ private fun ExitConfirmationDialog(
         }
     }
 }
-
-@Composable
-private fun PhoneSplashScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize().background(TajerIvory),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            BrandMark(
-                modifier = Modifier.size(82.dp)
-            )
-            Spacer(Modifier.height(22.dp))
-            Text(
-                "تاجر تراك",
-                color = TajerInk,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(5.dp))
-            Text(
-                "SMS PHONE",
-                color = TajerMuted,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 2.sp
-            )
-        }
-    }
-}
-
 
 @Composable
 private fun DeviceManagementPage(
