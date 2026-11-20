@@ -7,7 +7,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,17 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathMeasure
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -43,14 +31,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * Native Compose rendition of the animated brand mark at
- * apps/web/public/tajertrack-animated.svg in ni3yyn/dz-tracker.
- *
- * It uses the SVG's original viewBox geometry, palette, route, station markers,
- * and origin/destination nodes. Rendering natively keeps the launch animation
- * crisp and available offline without starting a WebView.
- */
 @Composable
 fun PhoneSplashScreen() {
     val logoScale = remember { Animatable(0.88f) }
@@ -115,14 +95,17 @@ fun PhoneSplashScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            AnimatedTajerTrackMark(
+            // Tile, route, parcel and message bubble are drawn by one Canvas
+            // in a single 512x512 coordinate system. Nothing can drift outside.
+            TajerTrackBrandMark(
                 modifier = Modifier.size(116.dp),
                 logoScale = logoScale.value,
                 routeProgress = routeProgress.value,
                 originProgress = originProgress.value,
                 stationProgress = stationProgress.value,
                 destinationProgress = destinationProgress.value,
-                parcelProgress = parcelProgress.value
+                parcelProgress = parcelProgress.value,
+                showParcel = true
             )
             Spacer(Modifier.height(24.dp))
             SplashBrandText(visible = brandVisible)
@@ -168,198 +151,5 @@ private fun SplashBrandText(visible: Boolean) {
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun AnimatedTajerTrackMark(
-    modifier: Modifier,
-    logoScale: Float,
-    routeProgress: Float,
-    originProgress: Float,
-    stationProgress: Float,
-    destinationProgress: Float,
-    parcelProgress: Float
-) {
-    val route = remember { tajerTrackRoutePath() }
-    val measure = remember(route) {
-        PathMeasure().apply { setPath(route, forceClosed = false) }
-    }
-
-    Canvas(
-        modifier = modifier.graphicsLayer {
-            scaleX = logoScale
-            scaleY = logoScale
-        }
-    ) {
-        val unit = size.minDimension / 512f
-        val forestTop = Color(0xFF2D5640)
-        val forestBottom = Color(0xFF223F2F)
-        val routeColor = Color(0xFFFFFEFA)
-        val clay = Color(0xFFD57955)
-
-        drawRoundRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(forestTop, forestBottom),
-                startY = 0f,
-                endY = size.height
-            ),
-            size = size,
-            cornerRadius = CornerRadius(112f * unit)
-        )
-        drawRoundRect(
-            color = Color.White.copy(alpha = 0.07f),
-            size = size,
-            cornerRadius = CornerRadius(110.5f * unit),
-            style = Stroke(width = 3f * unit)
-        )
-
-        // Draw the complete, transformed SVG route. Animate its opacity instead
-        // of trimming the path, which avoids vendor-dependent clipping artifacts.
-        drawPath(
-            path = route,
-            color = routeColor,
-            alpha = routeProgress.coerceIn(0f, 1f),
-            style = Stroke(
-                width = 28f * 1.45f * unit,
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round
-            )
-        )
-
-        fun mapped(x: Float, y: Float) = Offset(
-            x = (x - 254f) * 1.45f + 256f,
-            y = (y - 259.5f) * 1.45f + 256f
-        )
-
-        val hub = mapped(364f, 208f)
-        val outForDelivery = mapped(148f, 304f)
-        val origin = mapped(156f, 160f)
-        val destination = mapped(344f, 352f)
-
-        if (stationProgress > 0f) {
-            val radius = 7f * 1.45f * unit * stationProgress
-            drawCircle(forestBottom, radius, hub)
-            drawCircle(forestBottom, radius, outForDelivery)
-        }
-
-        if (originProgress > 0f) {
-            drawCircle(
-                color = clay,
-                radius = 26f * 1.45f * unit * originProgress,
-                center = origin
-            )
-        }
-
-        if (destinationProgress > 0f) {
-            val reveal = destinationProgress.coerceIn(0f, 1f)
-            drawCircle(
-                color = forestBottom,
-                radius = 26f * 1.45f * unit * reveal,
-                center = destination
-            )
-            drawCircle(
-                color = routeColor,
-                radius = 26f * 1.45f * unit * reveal,
-                center = destination,
-                style = Stroke(width = 14f * 1.45f * unit * reveal)
-            )
-        }
-
-        // The SMS bubble is part of the phone-specific mark, placed beside
-        // the route without covering the path or destination node.
-        val bubble = Path().apply {
-            moveTo(256f, 285f)
-            lineTo(307f, 285f)
-            quadraticTo(322f, 285f, 322f, 300f)
-            lineTo(322f, 325f)
-            quadraticTo(322f, 340f, 307f, 340f)
-            lineTo(287f, 340f)
-            lineTo(270f, 354f)
-            lineTo(270f, 340f)
-            lineTo(256f, 340f)
-            quadraticTo(241f, 340f, 241f, 325f)
-            lineTo(241f, 300f)
-            quadraticTo(241f, 285f, 256f, 285f)
-            close()
-        }
-        drawPath(bubble, clay.copy(alpha = destinationProgress.coerceIn(0f, 1f)))
-        drawPath(
-            bubble,
-            routeColor.copy(alpha = destinationProgress.coerceIn(0f, 1f)),
-            style = Stroke(width = 4.5f * unit)
-        )
-        if (destinationProgress > 0f) {
-            val dotsAlpha = destinationProgress.coerceIn(0f, 1f)
-            listOf(262f, 281f, 300f).forEach { dotX ->
-                drawCircle(
-                    color = routeColor.copy(alpha = dotsAlpha),
-                    radius = 4f * unit,
-                    center = Offset(dotX, 312f)
-                )
-            }
-        }
-
-        if (parcelProgress > 0f && parcelProgress < 1f) {
-            val position = measure.getPosition(measure.length * parcelProgress)
-            drawCircle(
-                color = clay,
-                radius = 19f * 1.45f * unit,
-                center = position
-            )
-            drawCircle(
-                color = forestBottom,
-                radius = 19f * 1.45f * unit,
-                center = position,
-                style = Stroke(width = 7f * 1.45f * unit)
-            )
-        }
-
-        if (parcelProgress >= 0.96f) {
-            val arrival = ((parcelProgress - 0.96f) / 0.04f).coerceIn(0f, 1f)
-            drawCircle(
-                color = routeColor,
-                radius = 33f * unit * arrival,
-                center = destination
-            )
-            val check = Path().apply {
-                moveTo(destination.x - 14f * unit, destination.y + 1f * unit)
-                lineTo(destination.x - 3f * unit, destination.y + 12f * unit)
-                lineTo(destination.x + 18f * unit, destination.y - 14f * unit)
-            }
-            drawPath(
-                path = check,
-                color = forestBottom,
-                style = Stroke(
-                    width = 7f * unit * arrival,
-                    cap = StrokeCap.Round,
-                    join = StrokeJoin.Round
-                )
-            )
-        }
-    }
-}
-
-private fun tajerTrackRoutePath(): Path {
-    fun x(value: Float) = (value - 254f) * 1.45f + 256f
-    fun y(value: Float) = (value - 259.5f) * 1.45f + 256f
-
-    return Path().apply {
-        moveTo(x(156f), y(160f))
-        lineTo(x(316f), y(160f))
-        arcTo(
-            rect = Rect(x(268f), y(160f), x(364f), y(256f)),
-            startAngleDegrees = -90f,
-            sweepAngleDegrees = 180f,
-            forceMoveTo = false
-        )
-        lineTo(x(196f), y(256f))
-        arcTo(
-            rect = Rect(x(148f), y(256f), x(244f), y(352f)),
-            startAngleDegrees = -90f,
-            sweepAngleDegrees = -180f,
-            forceMoveTo = false
-        )
-        lineTo(x(344f), y(352f))
     }
 }

@@ -1683,18 +1683,7 @@ private fun NoticePanel(title: String, detail: String, tone: NoticeTone) {
 
 @Composable
 private fun BrandMark(modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, color = TajerForest, shape = RectangleShape) {
-        Box(contentAlignment = Alignment.Center) {
-            Text("T", fontSize = 25.sp, color = Color.White, fontWeight = FontWeight.Bold)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 6.dp, bottom = 6.dp)
-                    .size(4.dp)
-                    .background(TajerClay)
-            )
-        }
-    }
+    TajerTrackBrandMark(modifier = modifier)
 }
 
 @Composable
