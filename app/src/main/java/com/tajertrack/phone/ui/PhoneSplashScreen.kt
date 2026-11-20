@@ -25,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
@@ -117,9 +116,7 @@ fun PhoneSplashScreen() {
             verticalArrangement = Arrangement.Center
         ) {
             AnimatedTajerTrackMark(
-                modifier = Modifier
-                    .size(116.dp)
-                    .clipToBounds(),
+                modifier = Modifier.size(116.dp),
                 logoScale = logoScale.value,
                 routeProgress = routeProgress.value,
                 originProgress = originProgress.value,
@@ -217,24 +214,18 @@ private fun AnimatedTajerTrackMark(
             style = Stroke(width = 3f * unit)
         )
 
-        if (routeProgress > 0f) {
-            val revealedRoute = Path()
-            measure.getSegment(
-                startDistance = 0f,
-                stopDistance = measure.length * routeProgress.coerceIn(0f, 1f),
-                destination = revealedRoute,
-                startWithMoveTo = true
+        // Draw the complete, transformed SVG route. Animate its opacity instead
+        // of trimming the path, which avoids vendor-dependent clipping artifacts.
+        drawPath(
+            path = route,
+            color = routeColor,
+            alpha = routeProgress.coerceIn(0f, 1f),
+            style = Stroke(
+                width = 28f * 1.45f * unit,
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round
             )
-            drawPath(
-                path = revealedRoute,
-                color = routeColor,
-                style = Stroke(
-                    width = 28f * 1.45f * unit,
-                    cap = StrokeCap.Round,
-                    join = StrokeJoin.Round
-                )
-            )
-        }
+        )
 
         fun mapped(x: Float, y: Float) = Offset(
             x = (x - 254f) * 1.45f + 256f,
@@ -273,6 +264,40 @@ private fun AnimatedTajerTrackMark(
                 center = destination,
                 style = Stroke(width = 14f * 1.45f * unit * reveal)
             )
+        }
+
+        // The SMS bubble is part of the phone-specific mark, placed beside
+        // the route without covering the path or destination node.
+        val bubble = Path().apply {
+            moveTo(374f, 286f)
+            lineTo(425f, 286f)
+            quadraticTo(440f, 286f, 440f, 301f)
+            lineTo(440f, 326f)
+            quadraticTo(440f, 341f, 425f, 341f)
+            lineTo(405f, 341f)
+            lineTo(388f, 355f)
+            lineTo(388f, 341f)
+            lineTo(374f, 341f)
+            quadraticTo(359f, 341f, 359f, 326f)
+            lineTo(359f, 301f)
+            quadraticTo(359f, 286f, 374f, 286f)
+            close()
+        }
+        drawPath(bubble, clay.copy(alpha = destinationProgress.coerceIn(0f, 1f)))
+        drawPath(
+            bubble,
+            routeColor.copy(alpha = destinationProgress.coerceIn(0f, 1f)),
+            style = Stroke(width = 4.5f * unit)
+        )
+        if (destinationProgress > 0f) {
+            val dotsAlpha = destinationProgress.coerceIn(0f, 1f)
+            listOf(380f, 399f, 418f).forEach { dotX ->
+                drawCircle(
+                    color = routeColor.copy(alpha = dotsAlpha),
+                    radius = 4f * unit,
+                    center = Offset(dotX, 313f)
+                )
+            }
         }
 
         if (parcelProgress > 0f && parcelProgress < 1f) {

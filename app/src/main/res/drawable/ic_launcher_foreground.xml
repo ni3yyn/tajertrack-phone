@@ -1,36 +1,49 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="512"
-    android:viewportHeight="512">
+    android:viewportWidth="108"
+    android:viewportHeight="108">
 
-    <group android:scaleX="0.82" android:scaleY="0.82" android:pivotX="256" android:pivotY="256">
-        <group android:scaleX="1.45" android:scaleY="1.45" android:translateX="-112.3" android:translateY="-120.275">
-            <path
-                android:fillColor="#00000000"
-                android:strokeColor="#FFFEFA"
-                android:strokeWidth="28"
-                android:strokeLineCap="round"
-                android:strokeLineJoin="round"
-                android:pathData="M156,160 H316 A48,48 0 0 1 316,256 H196 A48,48 0 0 0 196,352 H344" />
-            <path android:fillColor="#D57955" android:pathData="M182,160 A26,26 0 1 1 130,160 A26,26 0 1 1 182,160 Z" />
-            <path android:fillColor="#223F2F" android:pathData="M371,208 A7,7 0 1 1 357,208 A7,7 0 1 1 371,208 Z" />
-            <path android:fillColor="#223F2F" android:pathData="M155,304 A7,7 0 1 1 141,304 A7,7 0 1 1 155,304 Z" />
-            <path
-                android:fillColor="#223F2F"
-                android:strokeColor="#FFFEFA"
-                android:strokeWidth="14"
-                android:pathData="M370,352 A26,26 0 1 1 318,352 A26,26 0 1 1 370,352 Z" />
-        </group>
-        <!-- SMS companion bubble, kept clear of the delivery route. -->
+    <!-- Route geometry from the website SVG, mapped into the 66dp safe zone. -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.84"
+        android:scaleY="0.84">
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFEFA"
+            android:strokeWidth="7.2"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M24,23.6 H73 A14.7,14.7 0 0 1 73,53 H36.3 A14.7,14.7 0 0 0 36.3,82.4 H81.7" />
+
         <path
             android:fillColor="#D57955"
+            android:pathData="M31.95,23.6 A7.95,7.95 0 1 1 16.05,23.6 A7.95,7.95 0 1 1 31.95,23.6 Z" />
+
+        <path
+            android:fillColor="#2D5640"
+            android:pathData="M89.75,38.3 A2.15,2.15 0 1 1 85.45,38.3 A2.15,2.15 0 1 1 89.75,38.3 Z" />
+        <path
+            android:fillColor="#2D5640"
+            android:pathData="M23.75,67.6 A2.15,2.15 0 1 1 19.45,67.6 A2.15,2.15 0 1 1 23.75,67.6 Z" />
+
+        <path
+            android:fillColor="#2D5640"
             android:strokeColor="#FFFEFA"
-            android:strokeWidth="7"
-            android:strokeLineJoin="round"
-            android:pathData="M350,276 H393 A14,14 0 0 1 407,290 V315 A14,14 0 0 1 393,329 H373 L355,343 V329 H350 A14,14 0 0 1 336,315 V290 A14,14 0 0 1 350,276 Z" />
-        <path android:fillColor="#FFFEFA" android:pathData="M360,302 A4,4 0 1 1 352,302 A4,4 0 1 1 360,302 Z" />
-        <path android:fillColor="#FFFEFA" android:pathData="M376,302 A4,4 0 1 1 368,302 A4,4 0 1 1 376,302 Z" />
-        <path android:fillColor="#FFFEFA" android:pathData="M392,302 A4,4 0 1 1 384,302 A4,4 0 1 1 392,302 Z" />
+            android:strokeWidth="4.3"
+            android:pathData="M89.65,82.4 A7.95,7.95 0 1 1 73.75,82.4 A7.95,7.95 0 1 1 89.65,82.4 Z" />
     </group>
+
+    <!-- Small SMS badge remains inside the launcher safe zone. -->
+    <path
+        android:fillColor="#D57955"
+        android:strokeColor="#FFFEFA"
+        android:strokeWidth="1.35"
+        android:strokeLineJoin="round"
+        android:pathData="M73,60 H83.8 A3.4,3.4 0 0 1 87.2,63.4 V69 A3.4,3.4 0 0 1 83.8,72.4 H79 L73.9,76 V72.4 H73 A3.4,3.4 0 0 1 69.6,69 V63.4 A3.4,3.4 0 0 1 73,60 Z" />
+    <path android:fillColor="#FFFEFA" android:pathData="M75.5,66.4 A0.85,0.85 0 1 1 73.8,66.4 A0.85,0.85 0 1 1 75.5,66.4 Z" />
+    <path android:fillColor="#FFFEFA" android:pathData="M80.2,66.4 A0.85,0.85 0 1 1 78.5,66.4 A0.85,0.85 0 1 1 80.2,66.4 Z" />
+    <path android:fillColor="#FFFEFA" android:pathData="M84.9,66.4 A0.85,0.85 0 1 1 83.2,66.4 A0.85,0.85 0 1 1 84.9,66.4 Z" />
 </vector>
