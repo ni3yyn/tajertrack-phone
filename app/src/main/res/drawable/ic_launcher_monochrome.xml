@@ -3,6 +3,8 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Keep themed monochrome art aligned to the same smaller safe-area footprint. -->
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.78" android:scaleY="0.78">
     <group
         android:pivotX="54"
         android:pivotY="54"
@@ -26,4 +28,5 @@
         android:strokeWidth="1.35"
         android:strokeLineJoin="round"
         android:pathData="M55,59 H65.8 A3.4,3.4 0 0 1 69.2,62.4 V68 A3.4,3.4 0 0 1 65.8,71.4 H61 L55.9,75 V71.4 H55 A3.4,3.4 0 0 1 51.6,68 V62.4 A3.4,3.4 0 0 1 55,59 Z" />
+    </group>
 </vector>

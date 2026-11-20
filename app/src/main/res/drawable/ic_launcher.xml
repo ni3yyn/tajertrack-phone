@@ -12,6 +12,8 @@
         android:strokeWidth="3"
         android:pathData="M112,2 H400 A110,110 0 0 1 510,112 V400 A110,110 0 0 1 400,510 H112 A110,110 0 0 1 2,400 V112 A110,110 0 0 1 112,2 Z" />
 
+    <!-- Match the adaptive icon's generous inner margin in the flat fallback too. -->
+    <group android:scaleX="0.78" android:scaleY="0.78" android:pivotX="256" android:pivotY="256">
     <group android:scaleX="0.82" android:scaleY="0.82" android:pivotX="256" android:pivotY="256">
         <group android:scaleX="1.45" android:scaleY="1.45" android:translateX="-112.3" android:translateY="-120.275">
             <path
@@ -40,5 +42,6 @@
         <path android:fillColor="#FFFEFA" android:pathData="M360,302 A4,4 0 1 1 352,302 A4,4 0 1 1 360,302 Z" />
         <path android:fillColor="#FFFEFA" android:pathData="M376,302 A4,4 0 1 1 368,302 A4,4 0 1 1 376,302 Z" />
         <path android:fillColor="#FFFEFA" android:pathData="M392,302 A4,4 0 1 1 384,302 A4,4 0 1 1 392,302 Z" />
+    </group>
     </group>
 </vector>
