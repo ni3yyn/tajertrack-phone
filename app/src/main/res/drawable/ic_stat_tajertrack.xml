@@ -1,7 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path android:fillColor="#FFFFFFFF" android:pathData="M3,5h18v3h-7v12h-4v-12h-7z" />
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Monochrome status-bar version of the TajerTrack route mark.
+         Keep it white and transparent: Android applies the notification tint. -->
+    <group
+        android:scaleX="1.45"
+        android:scaleY="1.45"
+        android:translateX="-112.3"
+        android:translateY="-120.275">
+
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="28"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M156,160 H316 A48,48 0 0 1 316,256 H196 A48,48 0 0 0 196,352 H344" />
+
+        <path android:fillColor="#FFFFFFFF" android:pathData="M373,208 A9,9 0 1 1 355,208 A9,9 0 1 1 373,208 Z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M157,304 A9,9 0 1 1 139,304 A9,9 0 1 1 157,304 Z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M182,160 A26,26 0 1 1 130,160 A26,26 0 1 1 182,160 Z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M355.6,352 A11.6,11.6 0 1 1 332.4,352 A11.6,11.6 0 1 1 355.6,352 Z" />
+    </group>
 </vector>
