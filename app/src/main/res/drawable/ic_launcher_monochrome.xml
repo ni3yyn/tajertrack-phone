@@ -5,12 +5,12 @@
     android:viewportWidth="512"
     android:viewportHeight="512">
 
-    <!-- Match the color launcher icon's 88% safe-area scale. -->
+    <!-- Match the smaller color launcher mark and preserve identical safe margins. -->
     <group
         android:pivotX="256"
         android:pivotY="256"
-        android:scaleX="0.88"
-        android:scaleY="0.88">
+        android:scaleX="0.78"
+        android:scaleY="0.78">
         <group
             android:scaleX="1.45"
             android:scaleY="1.45"
