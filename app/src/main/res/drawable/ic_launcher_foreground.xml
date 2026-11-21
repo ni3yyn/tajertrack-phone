@@ -5,12 +5,12 @@
     android:viewportWidth="512"
     android:viewportHeight="512">
 
-    <!-- The original SVG mark, reduced only to Android's 66dp adaptive safe zone. -->
+    <!-- Use nearly the full Android adaptive-icon safe zone without mask clipping. -->
     <group
         android:pivotX="256"
         android:pivotY="256"
-        android:scaleX="0.86"
-        android:scaleY="0.86">
+        android:scaleX="0.88"
+        android:scaleY="0.88">
         <group
             android:scaleX="1.45"
             android:scaleY="1.45"

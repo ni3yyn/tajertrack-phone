@@ -5,12 +5,12 @@
     android:viewportWidth="512"
     android:viewportHeight="512">
 
-    <!-- Monochrome counterpart of the same centered route-and-checkmark mark. -->
+    <!-- Match the color launcher icon's 88% safe-area scale. -->
     <group
         android:pivotX="256"
         android:pivotY="256"
-        android:scaleX="0.86"
-        android:scaleY="0.86">
+        android:scaleX="0.88"
+        android:scaleY="0.88">
         <group
             android:scaleX="1.45"
             android:scaleY="1.45"
