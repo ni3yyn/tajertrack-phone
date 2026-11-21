@@ -14,6 +14,8 @@
 
     <application
         android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:label="تاجر تراك فون"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -28,17 +30,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <intent-filter>
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="tajertrack-sms" android:host="pair" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="tajertrack-sms" android:host="manager-pair" />
+                <data
+                    android:scheme="https"
+                    android:host="tajertrack.vercel.app"
+                    android:path="/mobile/sms-gateway/complete" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
