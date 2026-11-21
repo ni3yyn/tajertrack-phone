@@ -1,9 +1,11 @@
 package com.tajertrack.phone.data
 
 import android.content.Context
+import android.provider.Settings
 
 class AppPreferences(context: Context) {
-    private val preferences = context.getSharedPreferences("tajertrack_phone_preferences", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val preferences = appContext.getSharedPreferences("tajertrack_phone_preferences", Context.MODE_PRIVATE)
 
     var selectedSubscriptionId: Int
         get() = preferences.getInt(KEY_SUBSCRIPTION_ID, -1)
@@ -12,9 +14,46 @@ class AppPreferences(context: Context) {
             .putInt(KEY_NEXT_SIM_SLOT, 0)
             .apply()
 
+    /**
+     * This is the user's desired relay state, not a snapshot of process liveness.
+     * Commit it synchronously so a quick shutdown/reboot cannot lose the choice.
+     * When explicitly enabled, remember the boot on which the user enabled it.
+     */
     var relayEnabled: Boolean
         get() = preferences.getBoolean(KEY_RELAY_ENABLED, false)
-        set(value) = preferences.edit().putBoolean(KEY_RELAY_ENABLED, value).apply()
+        set(value) {
+            val editor = preferences.edit().putBoolean(KEY_RELAY_ENABLED, value)
+            if (value) {
+                currentBootCount()?.let { editor.putInt(KEY_RELAY_BOOT_COUNT, it) }
+            }
+            editor.commit()
+        }
+
+    /**
+     * Claims one auto-start attempt for this actual device boot.
+     *
+     * Android 15+ can also deliver BOOT_COMPLETED when a force-stopped app is
+     * brought out of the stopped state. Comparing BOOT_COUNT prevents that
+     * same-boot broadcast from silently re-enabling the SMS relay.
+     *
+     * A missing saved value is treated as a one-time migration from older builds
+     * that stored only relay_enabled.
+     */
+    fun claimBootAutoStart(): Boolean {
+        if (!relayEnabled) return false
+
+        val currentBootCount = currentBootCount() ?: return true
+        val previousBootCount = preferences.getInt(KEY_RELAY_BOOT_COUNT, Int.MIN_VALUE)
+        if (previousBootCount == currentBootCount) return false
+
+        return preferences.edit()
+            .putInt(KEY_RELAY_BOOT_COUNT, currentBootCount)
+            .commit()
+    }
+
+    private fun currentBootCount(): Int? = runCatching {
+        Settings.Global.getInt(appContext.contentResolver, Settings.Global.BOOT_COUNT)
+    }.getOrNull()
 
     var smsSetupUnlocked: Boolean
         get() = preferences.getBoolean(KEY_SMS_SETUP_UNLOCKED, false)
@@ -197,6 +236,7 @@ class AppPreferences(context: Context) {
     companion object {
         private const val KEY_SUBSCRIPTION_ID = "selected_subscription_id"
         private const val KEY_RELAY_ENABLED = "relay_enabled"
+        private const val KEY_RELAY_BOOT_COUNT = "relay_auto_start_boot_count"
         private const val KEY_SMS_SETUP_UNLOCKED = "sms_setup_unlocked"
         private const val KEY_SECONDARY_SUBSCRIPTION_ID = "secondary_subscription_id"
         private const val KEY_ALTERNATE_SIMS_ENABLED = "alternate_sims_enabled"
