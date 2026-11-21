@@ -336,7 +336,7 @@ class MainActivity : ComponentActivity() {
         val managerDeviceId = tokenStore.managerDeviceId()
         val urlBuilder = Uri.parse("${BuildConfig.TAJERTRACK_BASE_URL}/mobile/sms-gateway/connect")
             .buildUpon()
-            .appendQueryParameter("redirect_uri", "tajertrack-sms://manager-pair")
+            .appendQueryParameter("redirect_uri", "https://tajertrack.vercel.app/mobile/sms-gateway/complete?mode=manager")
             .appendQueryParameter("device_model", deviceModel)
         if (tokenStore.hasManagerCredential() && managerDeviceId.matches(Regex("[A-Za-z0-9_-]{8,80}"))) {
             urlBuilder.appendQueryParameter("manager_device_id", managerDeviceId)
@@ -351,8 +351,8 @@ class MainActivity : ComponentActivity() {
 
     private fun handlePairingIntent(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (uri.scheme != "tajertrack-sms") return
-        if (uri.host == "device-manager") {
+        // This non-sensitive legacy shortcut only opens the device manager.
+        if (uri.scheme == "tajertrack-sms" && uri.host == "device-manager") {
             deviceManagerLaunchRequest += 1
             if (tokenStore.hasManagerCredential()) {
                 loadManagerDevices()
@@ -360,9 +360,17 @@ class MainActivity : ComponentActivity() {
             }
             return
         }
-        if (uri.host !in setOf("pair", "manager-pair")) return
 
-        val managerMode = uri.host == "manager-pair"
+        // Pairing credentials are accepted only from the domain-verified HTTPS
+        // App Link. Unverified custom URL schemes are deliberately rejected.
+        val verifiedPairingLink = uri.scheme == "https" &&
+            uri.host.equals("tajertrack.vercel.app", ignoreCase = true) &&
+            uri.path == "/mobile/sms-gateway/complete"
+        if (!verifiedPairingLink) return
+
+        val mode = uri.getQueryParameter("mode")
+        if (mode != "manager" && mode != "sender") return
+        val managerMode = mode == "manager"
         val code = uri.getQueryParameter("code")?.trim().orEmpty()
         if (code.isBlank()) {
             statusMessage = "رابط الربط غير مكتمل. افتح صفحة الربط من جديد."
