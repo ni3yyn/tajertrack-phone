@@ -195,7 +195,7 @@ class MainActivity : ComponentActivity() {
                     onCopyInvite = ::copyInvite,
                     onCopyDownloadLink = ::copyDownloadLink,
                     onCopyInviteMessage = ::copyInviteMessage,
-                    onRefreshManagerDevices = ::loadManagerDevices,
+                    onRefreshManagerDevices = ::refreshManagerDevices,
                     onUpdateManagerDevice = ::updateManagerDevice,
                     onRefreshManagerSmsMessages = { loadManagerSmsMessages(reset = true) },
                     onLoadMoreManagerSmsMessages = { loadManagerSmsMessages(reset = false) },
@@ -847,6 +847,33 @@ class MainActivity : ComponentActivity() {
                     "لم يتم ربط هواتف إرسال إضافية بعد."
                 } else {
                     "تظهر هنا هواتف الإرسال المرتبطة بهذا المتجر."
+                }
+            } catch (error: Exception) {
+                managerDevicesStatus = ApiClient.describeFailure(error)
+            } finally {
+                isLoadingManagerDevices = false
+            }
+        }
+    }
+
+    private fun refreshManagerDevices() {
+        val managerToken = tokenStore.managerToken()
+        if (managerToken.isNullOrBlank()) {
+            managerDevicesStatus = "هذا الهاتف ليس هاتفاً رئيسياً."
+            return
+        }
+        if (isLoadingManagerDevices) return
+
+        isLoadingManagerDevices = true
+        lifecycleScope.launch {
+            try {
+                val api = ApiClient()
+                val requestedCount = api.requestManagerDeviceHealthRefresh(managerToken)
+                managerSenderDevices = api.listManagerDevices(managerToken)
+                managerDevicesStatus = if (requestedCount > 0) {
+                    "طُلب تحديث التقارير الصحية من $requestedCount هاتف. ستظهر النتائج عند اتصال كل هاتف بالخادم."
+                } else {
+                    "لا توجد هواتف إرسال مفعّلة لتحديث تقاريرها."
                 }
             } catch (error: Exception) {
                 managerDevicesStatus = ApiClient.describeFailure(error)

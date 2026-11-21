@@ -25,14 +25,19 @@ object RemoteDeviceHealthReporter {
         api: ApiClient,
         profile: DeviceCredential,
         relayRunning: Boolean,
-        force: Boolean = false
+        force: Boolean = false,
+        refreshRequestedAt: String? = null
     ) {
         val now = System.currentTimeMillis()
         val previous = lastAttemptByDevice[profile.deviceId] ?: 0L
-        if (!force && now - previous < REPORT_INTERVAL_MS) return
+        if (!force && refreshRequestedAt.isNullOrBlank() && now - previous < REPORT_INTERVAL_MS) return
         lastAttemptByDevice[profile.deviceId] = now
         try {
-            api.reportDeviceHealth(profile.token, DeviceHealthSnapshot.capture(context, preferences, relayRunning))
+            api.reportDeviceHealth(
+                profile.token,
+                DeviceHealthSnapshot.capture(context, preferences, relayRunning),
+                refreshRequestedAt
+            )
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {

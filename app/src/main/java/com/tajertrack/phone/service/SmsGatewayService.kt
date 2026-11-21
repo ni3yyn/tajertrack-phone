@@ -278,6 +278,18 @@ class SmsGatewayService : Service() {
                         throw error
                     }
 
+                    claim.healthRefreshRequestedAt?.let { requestedAt ->
+                        RemoteDeviceHealthReporter.reportIfDue(
+                            context = this@SmsGatewayService,
+                            preferences = preferences,
+                            api = api,
+                            profile = profile,
+                            relayRunning = isRunning,
+                            force = true,
+                            refreshRequestedAt = requestedAt
+                        )
+                    }
+
                     markServerSuccess(preferences)
                     consecutiveFailures = 0
                     preferences.consecutiveRelayFailures = 0

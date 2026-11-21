@@ -101,9 +101,27 @@ class ApiClient {
             )
         }
 
-    suspend fun reportDeviceHealth(token: String, healthReport: JSONObject) = withContext(Dispatchers.IO) {
-        val response = post("/api/mobile/sms-gateway/device/health", JSONObject().put("healthReport", healthReport), token)
+    suspend fun reportDeviceHealth(
+        token: String,
+        healthReport: JSONObject,
+        refreshRequestedAt: String? = null
+    ) = withContext(Dispatchers.IO) {
+        val body = JSONObject().put("healthReport", healthReport)
+        if (!refreshRequestedAt.isNullOrBlank()) body.put("healthRefreshRequestedAt", refreshRequestedAt)
+        val response = post("/api/mobile/sms-gateway/device/health", body, token)
         if (!response.optBoolean("success")) throw GatewayProtocolException("TajerTrack did not confirm the sender device health report.")
+    }
+
+    suspend fun requestManagerDeviceHealthRefresh(managerToken: String): Int = withContext(Dispatchers.IO) {
+        val response = post(
+            "/api/mobile/sms-gateway/manager/devices/health-refresh",
+            JSONObject(),
+            managerToken
+        )
+        if (!response.optBoolean("success")) {
+            throw GatewayProtocolException("TajerTrack did not queue a sender device health refresh.")
+        }
+        response.optInt("requestedCount", 0).coerceAtLeast(0)
     }
 
     suspend fun listManagerDevices(managerToken: String): List<ManagerSenderDevice> =
@@ -232,6 +250,8 @@ class ApiClient {
         )
         val job = response.optJSONObject("job")
         ClaimResult(
+            healthRefreshRequestedAt = response.optString("healthRefreshRequestedAt")
+                .takeUnless { it.isBlank() || it == "null" },
             job = job?.let {
                 val claimToken = it.optString("claimToken")
                     .takeIf(String::isNotBlank)
@@ -548,7 +568,8 @@ data class ClaimResult(
     val gatewayPaused: Boolean,
     val merchantDisabled: Boolean,
     val operatorConflict: Boolean,
-    val operatorUnassigned: Boolean
+    val operatorUnassigned: Boolean,
+    val healthRefreshRequestedAt: String? = null
 )
 
 class GatewayHttpException(
